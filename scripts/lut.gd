@@ -3,7 +3,7 @@ class_name Tables
 #
 # Lookup Tables for Marching Cubes
 #
-# These tables differ from the original paper (Marching Cubes: A High Resolution 3D Surface Construction Algorithm)
+# These tables differ from the original paper (Marching Cubes: A High Resolution 3D Surface static varruction Algorithm)
 #
 # The co-ordinate system has the more convenient properties:
 #
@@ -38,7 +38,7 @@ class_name Tables
 
 # Pair of vertex indices for each edge on the cube
 
-const VertexPositions = [
+static var VertexPositions = [
     Vector3.ZERO,
     Vector3.RIGHT,
     Vector3.UP,
@@ -49,7 +49,7 @@ const VertexPositions = [
     Vector3.FORWARD + Vector3.UP + Vector3.RIGHT
 ]
 
-const EdgeVertexIndices = [
+static var EdgeVertexIndices = [
     [0, 1],
     [1, 3],
     [3, 2],
@@ -65,7 +65,7 @@ const EdgeVertexIndices = [
 ]
 
 # For each MC case, a mask of edge indices that need to be split
-const EdgeMasks = [
+static var EdgeMasks = [
     0x0, 0x109, 0x203, 0x30a, 0x80c, 0x905, 0xa0f, 0xb06, 
     0x406, 0x50f, 0x605, 0x70c, 0xc0a, 0xd03, 0xe09, 0xf00, 
     0x190, 0x99, 0x393, 0x29a, 0x99c, 0x895, 0xb9f, 0xa96, 
@@ -101,7 +101,7 @@ const EdgeMasks = [
 ];
 
 # For each MC case, a list of triangles, specified as triples of edge indices, terminated by -1
-const TriangleTable = [
+static var TriangleTable = [
     [ -1 ],
     [ 0, 3, 8, -1 ],
     [ 0, 9, 1, -1 ],

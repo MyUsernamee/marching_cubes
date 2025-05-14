@@ -18,3 +18,11 @@ config/icon="res://icon.svg"
 [dotnet]
 
 project/assembly_name="marching_cubes"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/freecam_3D/plugin.cfg")
+
+[rendering]
+
+driver/threads/thread_model=2

@@ -1,4 +1,16 @@
-[gd_scene format=3 uid="uid://dyq1p6fil7abv"]
+[gd_scene load_steps=6 format=3 uid="uid://dyq1p6fil7abv"]
+
+[ext_resource type="Script" path="res://addons/freecam_3D/freecam.gd" id="1_3o86n"]
+[ext_resource type="Script" path="res://scripts/terrain_manager.gd" id="1_5tix1"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_8yi1a"]
+
+[sub_resource type="Sky" id="Sky_gey1s"]
+sky_material = SubResource("ProceduralSkyMaterial_8yi1a")
+
+[sub_resource type="Environment" id="Environment_71kqe"]
+background_mode = 2
+sky = SubResource("Sky_gey1s")
 
 [node name="Game" type="Node3D"]
 
@@ -6,4 +18,10 @@
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.20967, 0)
 
 [node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.41534)
+script = ExtResource("1_3o86n")
+
+[node name="TerrainManager" type="Node3D" parent="."]
+script = ExtResource("1_5tix1")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_71kqe")
