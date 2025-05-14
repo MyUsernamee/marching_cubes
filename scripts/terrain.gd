@@ -138,7 +138,6 @@ func gen_mesh():
 func regen_mesh():
 	
 	mesh.clear_surfaces();
-	surface_array.resize(Mesh.ARRAY_MAX)
 
 
 	verts = PackedVector3Array()
@@ -178,6 +177,7 @@ func _ready() -> void:
 	for i in range(VALUES ** 3):
 		value_array[i] = 0.0;
 
+	surface_array.resize(Mesh.ARRAY_MAX)
 
 	is_ready = true;
 
@@ -196,7 +196,6 @@ func _process(delta: float) -> void:
 		needs_update = false;
 		if not task or WorkerThreadPool.is_task_completed(task):
 			task = WorkerThreadPool.add_task(regen_mesh, true,);
-			WorkerThreadPool.
 
 	return;
 
