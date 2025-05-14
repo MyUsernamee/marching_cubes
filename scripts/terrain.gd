@@ -13,6 +13,8 @@ var indicies: PackedInt32Array;
 var normals: PackedVector3Array;
 var uvs: PackedVector2Array;
 
+var generation_function: Callable;
+
 class MeshChunk:
 	var verts: Array[Vector3];
 	var uvs: Array[Vector2];
@@ -141,30 +143,38 @@ func regen_mesh():
 	gen_mesh();
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, surface_array)
 
-# Called when the node enters the scene tree for the first time.
-func _ready() -> void:
-
-	print(frac(Vector3.ONE * 100.5))
-
-	value_array.resize(VALUES ** 3)
-
-	for i in range(VALUES ** 3):
-		value_array[i] = 0.0;
+func fill_generation():
 
 	# Set value to be distance from center 16, 16, 16 / 32
 	for x in range(VALUES):
 		for y in range(VALUES):
 			for z in range(VALUES):
-				var center = Vector3(VALUES / 2, VALUES / 2, VALUES / 2)
-				var position = Vector3(x, y, z)
-				var distance = center.distance_to(position)
-				set_value(x, y, z, perlin(Vector3(x, y, z) / 5.0) )
-				if x == 0 or x == VALUES - 1 or y == 0 or y == VALUES - 1 or z == 0 or z == VALUES - 1:
-					set_value(x, y, z, 0.0)
+				var position = Vector3(x, y, z) * scale + global_position;
+				set_value(x, y, z, generation_function.call(position))
+
+
+# Called when the node enters the scene tree for the first time.
+func _ready() -> void:
+
+	value_array.resize(VALUES ** 3)
+	for i in range(VALUES ** 3):
+		value_array[i] = 0.0;
+
+	generation_function = func temp(x): return perlin(x / 5.0);
 	
 	surface_array.resize(Mesh.ARRAY_MAX)
 
+	fill_generation();
 	regen_mesh();
+
+static func create(position, gen_fun: Callable, scale = Vector3.ONE):
+	var new_terrain_node = new();
+	new_terrain_node.global_position = position;
+	new_terrain_node.generation_function =  gen_fun;
+	new_terrain_node.scale = scale;
+
+	return new_terrain_node;
+
 
 
 
