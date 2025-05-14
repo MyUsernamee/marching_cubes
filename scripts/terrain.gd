@@ -47,13 +47,11 @@ static func perlin(x):
 
 func add_mesh_chunk(chunk, _position):
 	var start_index = indicies.size()
-	mutex.lock()
 	for vert in range(chunk.verts.size()):
 		verts.push_back(chunk.verts[vert] + _position);
 		uvs.push_back(chunk.uvs[vert]);
 		normals.push_back(chunk.normals[vert]);
 		indicies.push_back(chunk.indicies[vert] + start_index);
-	mutex.unlock();
 
 func convert_values_to_lookup_index(values: Array, surface_level: float) -> int:
 	var lookup_index = 0;
@@ -158,16 +156,18 @@ func regen_mesh():
 	mesh.call_deferred("add_surface_from_arrays", Mesh.PRIMITIVE_TRIANGLES, surface_array)
 	
 
-func fill_generation():
-	needs_update = true;
+func fill_generation(_offset, _scale):
 	# Set value to be distance from center 16, 16, 16 / 32
 	
 	for x in range(VALUES):
 		for y in range(VALUES):
 			for z in range(VALUES):
-				var _position = Vector3(x, y, z) * scale + global_position;
+				var _position = Vector3(x, y, z) * _scale + _offset;
 				set_value(x, y, z, generation_function.call(_position))
+	needs_update = true;
 
+func threaded_fill():
+	WorkerThreadPool.add_task(fill_generation.bind(global_position, scale))
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
@@ -186,12 +186,11 @@ func create(_position, gen_fun: Callable, _scale = Vector3.ONE):
 	generation_function =  gen_fun;
 	scale = _scale;
 
-	fill_generation();
+	call_deferred("threaded_fill")
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
 
-	DebugDraw3D.draw_sphere(global_position, 0.1, Color(1.0, 0.0, 0.0, 1.0));
 
 	if needs_update and is_ready:
 		needs_update = false;
