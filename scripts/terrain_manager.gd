@@ -31,7 +31,8 @@ func _ready() -> void:
     pass
 
 func despawn_chunk(chunk):
-    chunks_dict[chunk][0].queue_free()
+    chunks_dict[chunk][0].hide()
+    chunks_dict[chunk][0].call_deferred("queue_free")
     chunks_dict.erase(chunk)
     
 
@@ -40,8 +41,7 @@ func unload_chunks():
         if chunk.distance_to(convert_world_to_chunk_space(camera.global_position)) > 8:
             despawn_chunk(chunk)
 
-func _process(delta: float) -> void:
 
-    unload_chunks();
+func _process(delta: float) -> void:
 
     ensure_area_loaded(convert_world_to_chunk_space(camera.global_position) - Vector3.ONE, convert_world_to_chunk_space(camera.global_position) + Vector3.ONE)

@@ -104,9 +104,7 @@ func generate_cube(values: Array, surface_level: float) -> MeshChunk:
 	return mesh_chunk;
 
 func get_value(x, y, z):
-	mutex.lock()
 	var temp = value_array[x + y * VALUES + z * VALUES * VALUES];
-	mutex.unlock()
 	return temp
 
 func set_value(x, y, z, value):
@@ -140,6 +138,8 @@ func gen_mesh():
 func regen_mesh():
 	
 	mesh.clear_surfaces();
+	surface_array.resize(Mesh.ARRAY_MAX)
+
 
 	verts = PackedVector3Array()
 	uvs = PackedVector2Array()
@@ -178,7 +178,7 @@ func _ready() -> void:
 	for i in range(VALUES ** 3):
 		value_array[i] = 0.0;
 
-	surface_array.resize(Mesh.ARRAY_MAX)
+
 	is_ready = true;
 
 func create(_position, gen_fun: Callable, _scale = Vector3.ONE):
@@ -194,9 +194,9 @@ func _process(delta: float) -> void:
 
 	if needs_update and is_ready:
 		needs_update = false;
-		if task and not WorkerThreadPool.is_task_completed(task):
-			WorkerThreadPool.wait_for_task_completion(task);
-		task = WorkerThreadPool.add_task(regen_mesh);
+		if not task or WorkerThreadPool.is_task_completed(task):
+			task = WorkerThreadPool.add_task(regen_mesh, true,);
+			WorkerThreadPool.
 
 	return;
 
