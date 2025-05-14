@@ -2,9 +2,10 @@
 extends MeshInstance3D
 class_name MarchingCubes
 
-const VALUES = 8;
+const VALUES = 16;
 
 var value_array : Array[float] = [];
+var needs_update = false;
 
 var surface_array = []
 var verts: PackedVector3Array;
@@ -17,6 +18,25 @@ class MeshChunk:
 	var uvs: Array[Vector2];
 	var normals: Array[Vector3];
 	var indicies: Array[int];
+
+func frac(x):
+	return x - floor(x);
+
+func _hash(n): 
+	return frac(sin(n)*43758.5453);
+	
+func perlin(x): 
+	var p: Vector3 = Vector3(floor(x.x), floor(x.y), floor(x.z));
+	var f: Vector3 = Vector3(frac(x.x), frac(x.y), frac(x.z));
+	
+	f = f*f*(Vector3.ONE * 3.0-2.0*f);
+	var n = p.x + p.y*57.0 + 113.0*p.z;
+	
+	return lerp(lerp(lerp( _hash(n+0.0), _hash(n+1.0), clamp(f.x, 0.0, 1.0)),
+			lerp( _hash(n+57.0), _hash(n+58.0),clamp(f.x, 0.0, 1.0)),clamp(f.y, 0.0, 1.0)),
+			lerp(lerp( _hash(n+113.0), _hash(n+114.0),clamp(f.x, 0.0, 1.0)),
+			lerp( _hash(n+170.0), _hash(n+171.0),clamp(f.x, 0.0, 1.0)),clamp(f.y, 0.0, 1.0)),clamp(f.z, 0.0, 1.0));
+
 
 func add_mesh_chunk(chunk, position):
 	var start_index = indicies.size()
@@ -82,6 +102,7 @@ func get_value(x, y, z):
 
 func set_value(x, y, z, value):
 	value_array[x + y * VALUES + z * VALUES * VALUES] = value;
+	needs_update = true;
 
 func gen_mesh():
 
@@ -104,8 +125,26 @@ func gen_mesh():
 				var mesh_chunk = generate_cube(values, .5)
 				add_mesh_chunk(mesh_chunk, Vector3(i, j, k))
 
+func regen_mesh():
+	mesh.clear_surfaces();
+
+	verts = PackedVector3Array()
+	uvs = PackedVector2Array()
+	normals = PackedVector3Array()
+	indicies = PackedInt32Array()
+
+	surface_array[Mesh.ARRAY_VERTEX] = verts
+	surface_array[Mesh.ARRAY_NORMAL] = normals
+	surface_array[Mesh.ARRAY_TEX_UV] = uvs
+	surface_array[Mesh.ARRAY_INDEX] = indicies
+
+	gen_mesh();
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, surface_array)
+
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
+
+	print(frac(Vector3.ONE * 100.5))
 
 	value_array.resize(VALUES ** 3)
 
@@ -119,40 +158,22 @@ func _ready() -> void:
 				var center = Vector3(VALUES / 2, VALUES / 2, VALUES / 2)
 				var position = Vector3(x, y, z)
 				var distance = center.distance_to(position)
-				set_value(x, y, z, 1.0 - (distance / (VALUES / 2)))
+				set_value(x, y, z, perlin(Vector3(x, y, z) / 5.0) )
+				if x == 0 or x == VALUES - 1 or y == 0 or y == VALUES - 1 or z == 0 or z == VALUES - 1:
+					set_value(x, y, z, 0.0)
 	
-	mesh.clear_surfaces();
-
-	if Engine.is_editor_hint():
-		print("HELLO!");
-
-
 	surface_array.resize(Mesh.ARRAY_MAX)
 
-	verts = PackedVector3Array()
-	uvs = PackedVector2Array()
-	normals = PackedVector3Array()
-	indicies = PackedInt32Array()
+	regen_mesh();
 
-	surface_array[Mesh.ARRAY_VERTEX] = verts
-	surface_array[Mesh.ARRAY_NORMAL] = normals
-	surface_array[Mesh.ARRAY_TEX_UV] = uvs
-	surface_array[Mesh.ARRAY_INDEX] = indicies
-
-
-	print(verts);
-	print(normals);
-	print(uvs);
-	print(indicies);
-	print(verts.size());
-
-	gen_mesh();
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, surface_array)
-	mesh.regen_normal_maps();
 
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
+
+	if needs_update:
+		needs_update = false;
+		regen_mesh()
 
 	if Engine.is_editor_hint() and false:
 
