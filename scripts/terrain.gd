@@ -45,10 +45,10 @@ static func perlin(x):
 			lerp( _hash(n+170.0), _hash(n+171.0),clamp(f.x, 0.0, 1.0)),clamp(f.y, 0.0, 1.0)),clamp(f.z, 0.0, 1.0));
 
 
-func add_mesh_chunk(chunk, _position):
+func add_mesh_chunk(chunk, _position, _scale):
 	var start_index = indicies.size()
 	for vert in range(chunk.verts.size()):
-		verts.push_back(chunk.verts[vert] + _position);
+		verts.push_back(chunk.verts[vert] * _scale + _position);
 		uvs.push_back(chunk.uvs[vert]);
 		normals.push_back(chunk.normals[vert]);
 		indicies.push_back(chunk.indicies[vert] + start_index);
@@ -117,12 +117,12 @@ func gen_mesh():
 
 	for i in range(VALUES - 1):
 		for j in range(VALUES - 1):
-			for k in range(1, VALUES):
+			for k in range(VALUES - 1):
 				# Get data
 
 				var values = []
 
-				for n_k in range(0, -2, -1):
+				for n_k in range(0, 2):
 					for n_j in range(0, 2):
 						for n_i in range(0, 2):
 							if i + n_i < 0 or i + n_i >= VALUES or j + n_j < 0 or j + n_j >= VALUES or k + n_k < 0 or k + n_k >= VALUES:
@@ -132,7 +132,7 @@ func gen_mesh():
 
 				var mesh_chunk = generate_cube(values, .5)
 				
-				add_mesh_chunk(mesh_chunk, Vector3(i, j, k))
+				add_mesh_chunk(mesh_chunk, Vector3(i, j, k) / VALUES - Vector3.ONE * 0.5, 1.0 / VALUES)
 				
 
 func regen_mesh():
@@ -151,22 +151,24 @@ func regen_mesh():
 	surface_array[Mesh.ARRAY_INDEX] = indicies
 	
 	gen_mesh();
+
+	if verts.size() != 0:
 	
-	mesh.call_deferred("add_surface_from_arrays", Mesh.PRIMITIVE_TRIANGLES, surface_array)
+		mesh.call_deferred("add_surface_from_arrays", Mesh.PRIMITIVE_TRIANGLES, surface_array)
 	
 
-func fill_generation(_offset, _scale):
+func fill_generation(_transform):
 	# Set value to be distance from center 16, 16, 16 / 32
 	
 	for x in range(VALUES):
 		for y in range(VALUES):
 			for z in range(VALUES):
-				var _position = Vector3(x, y, z) * _scale + _offset;
+				var _position = (Vector3(x, y, z) / VALUES - 0.5 * Vector3.ONE) * _transform;
 				set_value(x, y, z, generation_function.call(_position))
 	needs_update = true;
 
 func threaded_fill():
-	WorkerThreadPool.add_task(fill_generation.bind(global_position, scale))
+	WorkerThreadPool.add_task(fill_generation.bind(global_transform))
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
@@ -181,16 +183,20 @@ func _ready() -> void:
 
 	is_ready = true;
 
-func create(_position, gen_fun: Callable, _scale = Vector3.ONE):
-	global_position = _position;
-	generation_function =  gen_fun;
-	scale = _scale;
+	if Engine.is_editor_hint():
+		generation_function = func temp(x): return perlin(x / 5.0)
+		fill_generation(global_transform);
+		regen_mesh();
 
+func create(gen_fun: Callable):
+	generation_function =  gen_fun;
 	call_deferred("threaded_fill")
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
 
+	if Engine.is_editor_hint():
+		return;
 
 	if needs_update and is_ready:
 		needs_update = false;

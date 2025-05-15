@@ -1,4 +1,6 @@
+@tool
 class_name Tables
+
 
 #
 # Lookup Tables for Marching Cubes
@@ -43,10 +45,10 @@ static var VertexPositions = [
     Vector3.RIGHT,
     Vector3.UP,
     Vector3.UP + Vector3.RIGHT,
-    Vector3.FORWARD,
-    Vector3.FORWARD + Vector3.RIGHT,
-    Vector3.FORWARD + Vector3.UP,
-    Vector3.FORWARD + Vector3.UP + Vector3.RIGHT
+    -Vector3.FORWARD,
+    -Vector3.FORWARD + Vector3.RIGHT,
+    -Vector3.FORWARD + Vector3.UP,
+    -Vector3.FORWARD + Vector3.UP + Vector3.RIGHT
 ]
 
 static var EdgeVertexIndices = [
