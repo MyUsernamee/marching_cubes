@@ -1,8 +1,7 @@
-[gd_scene load_steps=8 format=3 uid="uid://dyq1p6fil7abv"]
+[gd_scene load_steps=6 format=3 uid="uid://dyq1p6fil7abv"]
 
-[ext_resource type="Script" path="res://addons/freecam_3D/freecam.gd" id="1_3o86n"]
-[ext_resource type="Script" path="res://scripts/terrain_manager.gd" id="2_gr5l4"]
-[ext_resource type="Script" path="res://scripts/terrain.gd" id="3_ioy4d"]
+[ext_resource type="Script" uid="uid://8vyuhyx0xogt" path="res://addons/freecam_3D/freecam.gd" id="1_3o86n"]
+[ext_resource type="Script" uid="uid://bi3ktn07h06fv" path="res://scripts/leaf.gd" id="2_dutvf"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_8yi1a"]
 
@@ -12,8 +11,6 @@ sky_material = SubResource("ProceduralSkyMaterial_8yi1a")
 [sub_resource type="Environment" id="Environment_71kqe"]
 background_mode = 2
 sky = SubResource("Sky_gey1s")
-
-[sub_resource type="ArrayMesh" id="ArrayMesh_2b1df"]
 
 [node name="Game" type="Node3D"]
 
@@ -26,10 +23,6 @@ script = ExtResource("1_3o86n")
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_71kqe")
 
-[node name="TerrainManager" type="Node3D" parent="."]
-script = ExtResource("2_gr5l4")
-
-[node name="MarchingCubes" type="MeshInstance3D" parent="."]
-transform = Transform3D(8, 0, 0, 0, 8, 0, 0, 0, 8, 0, 0, 0)
-mesh = SubResource("ArrayMesh_2b1df")
-script = ExtResource("3_ioy4d")
+[node name="Leaf" type="Node3D" parent="."]
+transform = Transform3D(4096, 0, 0, 0, 4096, 0, 0, 0, 4096, 0, 0, 0)
+script = ExtResource("2_dutvf")

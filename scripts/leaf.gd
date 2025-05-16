@@ -5,39 +5,42 @@ extends Node3D
 var children = [];
 var is_split = false;
 var level = 0;
+var has_terrain = false;
+
+const WIGGLE_ROOM = 0.5
 
 var terrain;
 
 var camera;
 
 func gen_fun(x):
-	return MarchingCubes.perlin(x / 5.0);
+	return -x.distance_to(Vector3.ZERO) + 100 + 10.0 * MarchingCubes.perlin(x / 5.0);
 
 func get_center():
 	return global_position 
 
 func get_cell_scale():
-	return floor(scale.x / MarchingCubes.VALUES)
+	return floor(scale.x / MarchingCubes.COUNT)
 
-static func get_target_scale(distance):
-	return floor(pow(distance / (MarchingCubes.VALUES * 4), 2.0));
+func get_world_size():
+	return global_basis* Vector3.ONE
 
 # Returns if point is inside the leaf
-func is_inside(x):
+func is_inside(x, wiggle):
 	var local_position = to_local(x)
-	return abs(local_position.x) <= 0.5 and abs(local_position.y) <= 0.5 and abs(local_position.z) <= 0.5
+	var max = 0.5 + wiggle
+	return abs(local_position.x) <= max and abs(local_position.y) <= max and abs(local_position.z) <= max
 	
 func should_split():
-	return is_inside(camera.global_position) and level < 8
+	return is_inside(camera.global_position, WIGGLE_ROOM) and (get_world_size().x > MarchingCubes.COUNT);
+
 
 func should_combine():
-	return not is_inside(camera.global_position) and is_split and not get_parent().should_combine()
+	return not is_inside(camera.global_position, WIGGLE_ROOM) and is_split and get_parent() is Leaf and not get_parent().should_combine()
 
 func split():
 
-	if terrain:
-		terrain.queue_free();
-
+	unload_terrain()
 	for x in range(2):
 		for y in range(2):
 			for z in range(2):
@@ -51,12 +54,20 @@ func split():
 	is_split = true
 
 func gen_terrain():
-	if terrain or level != 8:
+	if has_terrain:
 		return;
 
 	terrain = MarchingCubes.new();
 	add_child(terrain)
 	terrain.create(gen_fun)
+	has_terrain = true
+
+func unload_terrain():
+	if not has_terrain:
+		return;
+
+	terrain.queue_free();
+	has_terrain = false
 
 
 func combine():
@@ -68,7 +79,7 @@ func combine():
 	children.clear();
 
 	is_split = false
-	# gen_terrain();
+	# gen_terrain()
 
 func auto_split():
 	if should_split() and not is_split:
@@ -84,12 +95,12 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	
-	if not terrain and not is_split:
+	if not has_terrain and not is_split:
 		gen_terrain()
-		pass
 
 	auto_split()
 
+	return;
 	# Draw outlines of self
 	DebugDraw3D.draw_box_ab(global_position - global_basis * Vector3.ONE * 0.5, global_position + global_basis * Vector3.ONE * 0.5,)
 	

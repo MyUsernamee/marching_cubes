@@ -10,8 +10,8 @@ var chunks_dict = {};
 func generate_chunk(pos):
 	var new_chunk = MarchingCubes.new();
 	add_child(new_chunk)
-	new_chunk.scale = MarchingCubes.VALUES * Vector3.ONE
-	new_chunk.global_position = pos * (MarchingCubes.VALUES - 1.0) + new_chunk.scale / 2.0
+	new_chunk.scale = MarchingCubes.COUNT * Vector3.ONE
+	new_chunk.global_position = pos * (MarchingCubes.COUNT - 1.0) + new_chunk.scale / 2.0
 	new_chunk.create(func temp(x): return MarchingCubes.perlin(x / 5.00));
 	return new_chunk;
 
@@ -27,7 +27,7 @@ func ensure_area_loaded(a, b):
 				chunks_dict[Vector3(x, y, z)] = chunk_data
 
 func convert_world_to_chunk_space(a):
-	return floor(a / (MarchingCubes.VALUES - 1))
+	return floor(a / (MarchingCubes.COUNT - 1))
 
 func _ready() -> void:
 	if not camera:

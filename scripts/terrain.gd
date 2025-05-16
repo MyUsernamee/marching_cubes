@@ -2,15 +2,19 @@
 extends MeshInstance3D
 class_name MarchingCubes
 
-const VALUES = 8;
+const COUNT = 8;
+const VALUES = COUNT + 1;
+
+@export var debug = false;
 
 var mutex = Mutex.new();
 var task;
+var fill_task
 
 var is_ready = false;
 
 var value_array : Array[float] = [];
-var needs_update = false;
+@export var needs_update = false;
 
 var surface_array = []
 var verts: PackedVector3Array;
@@ -79,7 +83,7 @@ func generate_cube(values: Array, surface_level: float) -> MeshChunk:
 			break ; # Generated all triangles
 
 		var verticies = []
-		for j in range(3):
+		for j in range(2, -1, -1):
 			var edge_verticies_index = get_edge_indicies(lut_data[i + j]);
 			var a = values[edge_verticies_index[0]];
 			var b = values[edge_verticies_index[1]];
@@ -88,6 +92,7 @@ func generate_cube(values: Array, surface_level: float) -> MeshChunk:
 
 			var weighted_position = Tables.VertexPositions[edge_verticies_index[0]] * (1.0 - distance); 
 			weighted_position += Tables.VertexPositions[edge_verticies_index[1]] * (distance);
+			# weighted_position.z *= -1
 
 			verticies.append(weighted_position);
 			mesh_chunk.verts.append(weighted_position);
@@ -115,9 +120,9 @@ func set_value(x, y, z, value):
 
 func gen_mesh():
 
-	for i in range(VALUES - 1):
-		for j in range(VALUES - 1):
-			for k in range(VALUES - 1):
+	for i in range(COUNT):
+		for j in range(COUNT):
+			for k in range(COUNT):
 				# Get data
 
 				var values = []
@@ -132,12 +137,11 @@ func gen_mesh():
 
 				var mesh_chunk = generate_cube(values, .5)
 				
-				add_mesh_chunk(mesh_chunk, Vector3(i, j, k) / VALUES - Vector3.ONE * 0.5, 1.0 / VALUES)
+				add_mesh_chunk(mesh_chunk, Vector3(i, j, k) / COUNT - Vector3.ONE * 0.5, 1.0 / COUNT)
 				
 
 func regen_mesh():
 	
-	mesh.clear_surfaces();
 
 
 	verts = PackedVector3Array()
@@ -154,6 +158,7 @@ func regen_mesh():
 
 	if verts.size() != 0:
 	
+		mesh.clear_surfaces();
 		mesh.call_deferred("add_surface_from_arrays", Mesh.PRIMITIVE_TRIANGLES, surface_array)
 	
 
@@ -163,12 +168,13 @@ func fill_generation(_transform):
 	for x in range(VALUES):
 		for y in range(VALUES):
 			for z in range(VALUES):
-				var _position = (Vector3(x, y, z) / VALUES - 0.5 * Vector3.ONE) * _transform;
+				var _position = _transform * (Vector3(x, y, z) / COUNT- 0.5 * Vector3.ONE);
 				set_value(x, y, z, generation_function.call(_position))
 	needs_update = true;
 
 func threaded_fill():
-	WorkerThreadPool.add_task(fill_generation.bind(global_transform))
+	if not fill_task or WorkerThreadPool.is_task_completed(fill_task):
+		fill_task = WorkerThreadPool.add_task(fill_generation.bind(global_transform), true)
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
@@ -190,28 +196,38 @@ func _ready() -> void:
 
 func create(gen_fun: Callable):
 	generation_function =  gen_fun;
-	call_deferred("threaded_fill")
+	threaded_fill()
+
+func _exit_tree() -> void:
+	if fill_task:
+		WorkerThreadPool.wait_for_task_completion(fill_task)
+	if task:
+		WorkerThreadPool.wait_for_task_completion(task)
+
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
 
+
 	if Engine.is_editor_hint():
-		return;
+		
+		if needs_update:
+			fill_generation(global_transform);
+
+		if debug:
+			# Draw every point
+			for x in range(COUNT):
+				for y in range(COUNT):
+					for z in range(COUNT):
+						var position = Vector3(x, y, z) - Vector3.ONE * COUNT * 0.5;
+						var value = get_value(x, y, z)
+						DebugDraw3D.draw_box_ab(position, position + Vector3.ONE, Vector3.UP, Color(float(x) / COUNT, float(y) / COUNT, float(z) / COUNT, 1.0));
+						DebugDraw3D.draw_arrow(position, position + Vector3.ONE)
+						if value > 0.5:
+							var color = Color(value, 0.0, 0.0, 0.0)
+							DebugDraw3D.draw_sphere(position, 0.1, color);
 
 	if needs_update and is_ready:
 		needs_update = false;
 		if not task or WorkerThreadPool.is_task_completed(task):
 			task = WorkerThreadPool.add_task(regen_mesh, true,);
-
-	return;
-
-	# Draw every point
-	for x in range(VALUES):
-		for y in range(VALUES):
-			for z in range(VALUES):
-				var position = Vector3(x, y, z)
-				var value = get_value(x, y, z)
-				DebugDraw3D.draw_box_ab(position, position + Vector3.ONE, Vector3.UP);
-				if value > 0.5:
-					var color = Color(value, 0.0, 0.0, 0.0)
-					DebugDraw3D.draw_sphere(position, 0.1, color);
