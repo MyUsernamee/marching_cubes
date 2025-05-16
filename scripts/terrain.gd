@@ -184,7 +184,9 @@ func quadize_mesh():
 
 
 func gen_mesh():
+	var start = Time.get_ticks_usec()
 	quadize_mesh()
+	print(start - Time.get_ticks_usec())
 
 func regen_mesh():
 
