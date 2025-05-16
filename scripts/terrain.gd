@@ -2,7 +2,7 @@
 extends MeshInstance3D
 class_name MarchingCubes
 
-const COUNT = 4;
+const COUNT = 32;
 const VALUES = COUNT + 1;
 
 const last_update =0 ;
@@ -27,12 +27,6 @@ var uvs: PackedVector2Array;
 
 var generation_function: Callable;
 
-class MeshChunk:
-	var verts: Array[Vector3];
-	var uvs: Array[Vector2];
-	var normals: Array[Vector3];
-	var indicies: Array[int];
-
 static func frac(x):
 	return x - floor(x);
 
@@ -51,61 +45,6 @@ static func perlin(x):
 			lerp(lerp( _hash(n+113.0), _hash(n+114.0),clamp(f.x, 0.0, 1.0)),
 			lerp( _hash(n+170.0), _hash(n+171.0),clamp(f.x, 0.0, 1.0)),clamp(f.y, 0.0, 1.0)),clamp(f.z, 0.0, 1.0));
 
-
-
-func convert_values_to_lookup_index(values: Array, surface_level: float) -> int:
-	var lookup_index = 0;
-
-	for i in range(values.size()):
-		var value = values[i];
-		if value > surface_level:
-			lookup_index += 1 << i;
-
-	return lookup_index;
-
-func get_edge_indicies(index) -> Array:
-	return Tables.EdgeVertexIndices[index];
-
-# Returns two arrays, one with the verticies  
-func generate_cube(values: Array, surface_level: float) -> MeshChunk:
-	var mesh_chunk = MeshChunk.new();
-
-	# First we convert the values to a lookup index
-	var lookup_index = convert_values_to_lookup_index(values, surface_level);
-	var lut_data = Tables.TriangleTable[lookup_index];
-
-	for i in range(0, lut_data.size(), 3):
-		if lut_data[i] == -1:
-			break ; # Generated all triangles
-
-		var verticies = []
-		verticies.resize(3)
-		for j in range(2, -1, -1):
-			var edge_verticies_index = get_edge_indicies(lut_data[i + j]);
-			var a = values[edge_verticies_index[0]];
-			var b = values[edge_verticies_index[1]];
-			
-			var distance = (surface_level - a) / (b - a);
-
-			var weighted_position = Tables.VertexPositions[edge_verticies_index[0]] * (1.0 - distance); 
-			weighted_position += Tables.VertexPositions[edge_verticies_index[1]] * (distance);
-			# weighted_position.z *= -1
-
-			verticies[2-j] = (weighted_position);
-			mesh_chunk.verts.append(weighted_position);
-			mesh_chunk.indicies.append(mesh_chunk.indicies.size());
-			mesh_chunk.uvs.append(Vector2.ZERO);
-			# mesh_chunk.normals.append(Vector3.ZERO)
-
-		var normal = (verticies[0] - verticies[1]).cross(verticies[2] - verticies[1]);
-		# Calculate normals
-		for j in range(3):
-			mesh_chunk.normals.append(normal);
-
-
-	# Now we are going to generate some triangles
-	return mesh_chunk;
-
 func get_value(x, y, z):
 	var temp = value_array[x + y * VALUES + z * VALUES * VALUES];
 	return temp
@@ -114,44 +53,138 @@ func set_value(x, y, z, value):
 	value_array[x + y * VALUES + z * VALUES * VALUES] = value;
 	needs_update = true;
 
-func add_mesh_chunk(chunk, _position, _scale):
-	var start_index = indicies.size()
-	for vert in range(chunk.verts.size()):
-		verts.push_back(chunk.verts[vert] * _scale + _position);
-		uvs.push_back(chunk.uvs[vert]);
-		normals.push_back(chunk.normals[vert]);
-		indicies.push_back(chunk.indicies[vert] + start_index);
+func get_intersection(p, d):
+	var a = get_value(p.x, p.y, p.z)
+	var b = get_value(p.x + d.x, p.y + d.y, p.z + d.z)
+
+	if a * b >= 0:
+		return null;
+
+	var mid_point = -a / (b - a); # Gets the 0 point
+	
+
+	if mid_point < 0 or mid_point > 1:
+		return null
+
+	return p * (1.0 - mid_point) + (p + d) * (mid_point)
+
+const directions = [Vector3.RIGHT, Vector3.UP, Vector3.BACK]
+
+func orth_directions(direction):
+
+	match direction:
+		Vector3.RIGHT:
+			return [Vector3.UP, Vector3.BACK]
+		Vector3.UP:
+			return [Vector3.BACK, Vector3.RIGHT]
+		Vector3.BACK:
+			return [Vector3.RIGHT, Vector3.UP]
+
+func convert_pos_to_index(x, y, z):
+	return int(x) + int(y) * VALUES + int(z) * VALUES**2
+
+
+func convert_to_index(p):
+	return convert_pos_to_index(p.x, p.y, p.z)
+
+func get_normal(p):
+	var normal = Vector3.ZERO
+	var offsets = [
+		Vector3(-1, 0, 0), Vector3(1, 0, 0),
+		Vector3(0, -1, 0), Vector3(0, 1, 0),
+		Vector3(0, 0, -1), Vector3(0, 0, 1)
+	]
+
+	for offset in offsets:
+		var neighbor_pos = p + offset
+		if neighbor_pos.x >= 0 and neighbor_pos.x < VALUES and neighbor_pos.y >= 0 and neighbor_pos.y < VALUES and neighbor_pos.z >= 0 and neighbor_pos.z < VALUES:
+			var diff = get_value(neighbor_pos.x, neighbor_pos.y, neighbor_pos.z) - get_value(p.x, p.y, p.z)
+			normal += offset * diff
+
+	return normal.normalized()
+
+func quadize_mesh():
+
+	verts.resize(VALUES **3)
+	normals.resize(VALUES**3)
+
+	for x in range(COUNT):
+		for y in range(COUNT):
+			for z in range(COUNT):
+				verts.set(convert_pos_to_index(x, y, z),(Vector3(x, y, z) + Vector3.ONE * 0.5) / COUNT - Vector3.ONE * 0.5)
+				normals.set(convert_pos_to_index(x, y, z), get_normal(Vector3(x, y, z)))
+
+				if x * y * z == 0:
+					continue
+
+				var average = Vector3.ZERO;
+				var count = 0
+
+				for direction in directions:
+
+					var a = get_value(x, y, z);
+					var b = get_value(x + direction.x, y + direction.y, z + direction.z)
+
+					if a * b >= 0:
+						continue; # No surface here
+
+
+					var _p = Vector3(x, y, z)
+					
+					average += get_intersection(_p, direction)
+					count += 1
+
+					var orth = orth_directions(direction)
+					var right = _p - orth[0]
+					var up = _p - orth[1]
+					var back = _p - orth[0] - orth[1]
+
+
+					if a > b:
+						indicies.append(convert_to_index(_p))
+						indicies.append(convert_to_index(right))
+						indicies.append(convert_to_index(up))
+						indicies.append(convert_to_index(right))
+						indicies.append(convert_to_index(back))
+						indicies.append(convert_to_index(up))
+					else:
+						indicies.append(convert_to_index(_p))
+						indicies.append(convert_to_index(up))
+						indicies.append(convert_to_index(right))
+						indicies.append(convert_to_index(up))
+						indicies.append(convert_to_index(back))
+						indicies.append(convert_to_index(right))
+
+				for i in range(2):	
+					for j in range(2):	
+						for k in range(2):	
+							if i + j + k == 1:
+								continue;
+
+							var direction = Vector3(i, j, k)
+							var a = get_value(x, y, z);
+							var b = get_value(x + direction.x, y + direction.y, z + direction.z)
+
+							if a * b >= 0:
+								continue; # No surface here
+
+
+							var _p = Vector3(x, y, z)
+							average += get_intersection(_p, direction)
+							count += 1
+
+				if count != 0:
+					average /= count
+					verts.set(convert_pos_to_index(x, y, z),(average) / COUNT - Vector3.ONE * 0.5)
+
+	uvs.resize(verts.size())
+
+	
+	
+
 
 func gen_mesh():
-
-	var mesh_chunks = [];
-	mesh_chunks.resize(COUNT ** 3);
-
-	var _task = WorkerThreadPool.add_group_task(func temp(x):
-
-		var i = x % COUNT;
-		var j = floor(x / COUNT) % COUNT;
-		var k = floor(x / COUNT**2);
-
-		var values = []
-
-		for n_k in range(0, 2):
-			for n_j in range(0, 2):
-				for n_i in range(0, 2):
-					if i + n_i < 0 or i + n_i >= VALUES or j + n_j < 0 or j + n_j >= VALUES or k + n_k < 0 or k + n_k >= VALUES:
-						values.append(0.0)
-						continue;
-					values.append(get_value(i + n_i, j + n_j, k + n_k)) # Get values needed for generating a mesh for a single cell.
-
-		var mesh_chunk = generate_cube(values, .5)
-		mesh_chunks[i + j * COUNT + k * COUNT * COUNT] = [mesh_chunk,  Vector3(i, j, k) / COUNT - Vector3.ONE * 0.5, 1.0 / COUNT]				
-	, COUNT **3, true);
-
-	WorkerThreadPool.wait_for_group_task_completion(_task)
-
-	for chunk_data in mesh_chunks:
-		add_mesh_chunk(chunk_data[0], chunk_data[1], chunk_data[2])
-
+	quadize_mesh()
 
 func regen_mesh():
 
@@ -205,7 +238,7 @@ func _ready() -> void:
 	is_ready = true;
 
 	if Engine.is_editor_hint():
-		generation_function = func temp(x): return perlin(x / 5.0)
+		generation_function = func temp(x: Vector3): return (x.length()) - 1.00
 		fill_generation(global_transform);
 		regen_mesh();
 
@@ -234,13 +267,10 @@ func _process(delta: float) -> void:
 			for x in range(COUNT):
 				for y in range(COUNT):
 					for z in range(COUNT):
-						var position = Vector3(x, y, z) - Vector3.ONE * COUNT * 0.5;
+						var p = Vector3(x, y, z) / COUNT - Vector3.ONE * 0.5
 						var value = get_value(x, y, z)
-						DebugDraw3D.draw_box_ab(position, position + Vector3.ONE, Vector3.UP, Color(float(x) / COUNT, float(y) / COUNT, float(z) / COUNT, 1.0));
-						DebugDraw3D.draw_arrow(position, position + Vector3.ONE)
-						if value > 0.5:
-							var color = Color(value, 0.0, 0.0, 0.0)
-							DebugDraw3D.draw_sphere(position, 0.1, color);
+						var color = Color(value, 0.0, 0.0, 1.0)
+						DebugDraw3D.draw_sphere(global_transform * p, 0.01, color);
 
 	if needs_update and is_ready:
 		needs_update = false;
