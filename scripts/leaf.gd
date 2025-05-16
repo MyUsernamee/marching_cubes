@@ -14,7 +14,7 @@ var terrain;
 var camera;
 
 func gen_fun(x):
-	return -x.distance_to(Vector3.ZERO) + 100 + 10.0 * MarchingCubes.perlin(x / 5.0);
+	return -x.distance_to(Vector3.ZERO) + 4000 + 40.0 * MarchingCubes.perlin(x / 5.0);
 
 func get_center():
 	return global_position 
@@ -40,7 +40,6 @@ func should_combine():
 
 func split():
 
-	unload_terrain()
 	for x in range(2):
 		for y in range(2):
 			for z in range(2):
@@ -60,6 +59,7 @@ func gen_terrain():
 	terrain = MarchingCubes.new();
 	add_child(terrain)
 	terrain.create(gen_fun)
+	terrain.sorting_offset = get_world_size().x * 100.0;
 	has_terrain = true
 
 func unload_terrain():

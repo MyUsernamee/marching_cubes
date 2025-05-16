@@ -13,6 +13,7 @@ var fill_task
 
 var is_ready = false;
 
+
 var value_array : Array[float] = [];
 @export var needs_update = false;
 
@@ -83,6 +84,7 @@ func generate_cube(values: Array, surface_level: float) -> MeshChunk:
 			break ; # Generated all triangles
 
 		var verticies = []
+		verticies.resize(3)
 		for j in range(2, -1, -1):
 			var edge_verticies_index = get_edge_indicies(lut_data[i + j]);
 			var a = values[edge_verticies_index[0]];
@@ -94,7 +96,7 @@ func generate_cube(values: Array, surface_level: float) -> MeshChunk:
 			weighted_position += Tables.VertexPositions[edge_verticies_index[1]] * (distance);
 			# weighted_position.z *= -1
 
-			verticies.append(weighted_position);
+			verticies[2-j] = (weighted_position);
 			mesh_chunk.verts.append(weighted_position);
 			mesh_chunk.indicies.append(mesh_chunk.indicies.size());
 			mesh_chunk.uvs.append(Vector2.ZERO);
@@ -113,12 +115,13 @@ func get_value(x, y, z):
 	return temp
 
 func set_value(x, y, z, value):
-	mutex.lock()
 	value_array[x + y * VALUES + z * VALUES * VALUES] = value;
 	needs_update = true;
-	mutex.unlock()
 
 func gen_mesh():
+
+	var mesh_chunks = [];
+	mesh_chunks.resize(COUNT ** 3);
 
 	for i in range(COUNT):
 		for j in range(COUNT):
@@ -136,7 +139,8 @@ func gen_mesh():
 							values.append(get_value(i + n_i, j + n_j, k + n_k)) # Get values needed for generating a mesh for a single cell.
 
 				var mesh_chunk = generate_cube(values, .5)
-				
+
+				mesh_chunks[i + j * COUNT + k * COUNT * COUNT] = mesh_chunk				
 				add_mesh_chunk(mesh_chunk, Vector3(i, j, k) / COUNT - Vector3.ONE * 0.5, 1.0 / COUNT)
 				
 
@@ -164,17 +168,21 @@ func regen_mesh():
 
 func fill_generation(_transform):
 	# Set value to be distance from center 16, 16, 16 / 32
-	
-	for x in range(VALUES):
-		for y in range(VALUES):
-			for z in range(VALUES):
-				var _position = _transform * (Vector3(x, y, z) / COUNT- 0.5 * Vector3.ONE);
-				set_value(x, y, z, generation_function.call(_position))
-	needs_update = true;
+
+	var group_task = WorkerThreadPool.add_group_task(func temp(index):
+		var x = index % VALUES;
+		var y = floor(index / VALUES) % VALUES
+		var z = floor(index / (VALUES**2))
+		var _position = _transform * (Vector3(x, y, z) / COUNT- 0.5 * Vector3.ONE);
+		set_value(x, y, z, generation_function.call(_position))
+	, VALUES**3, -1, );
+
+
+	WorkerThreadPool.wait_for_group_task_completion(group_task);
+
 
 func threaded_fill():
-	if not fill_task or WorkerThreadPool.is_task_completed(fill_task):
-		fill_task = WorkerThreadPool.add_task(fill_generation.bind(global_transform), true)
+	fill_generation(global_transform);
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:

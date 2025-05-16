@@ -14,15 +14,17 @@ sky = SubResource("Sky_gey1s")
 
 [node name="Game" type="Node3D"]
 
-[node name="OmniLight3D" type="OmniLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.20967, 0)
-
-[node name="Camera3D" type="Camera3D" parent="."]
-script = ExtResource("1_3o86n")
-
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_71kqe")
 
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -4000)
+script = ExtResource("1_3o86n")
+
 [node name="Leaf" type="Node3D" parent="."]
-transform = Transform3D(4096, 0, 0, 0, 4096, 0, 0, 0, 4096, 0, 0, 0)
+transform = Transform3D(32768, 0, 0, 0, 32768, 0, 0, 0, 32768, 0, 0, 0)
 script = ExtResource("2_dutvf")
+
+[node name="Window" type="Window" parent="."]
+initial_position = 3
+current_screen = 0
