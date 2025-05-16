@@ -1,10 +1,12 @@
 
 
-using System.Collections;
-using System.Collections.Generic;
+using System;
+using Godot.Collections;
 using System.Dynamic;
 using Godot;
 using static Godot.GD;
+using System.Collections.Generic;
+using System.Linq;
 
 [Tool]
 [GlobalClass]
@@ -13,8 +15,18 @@ public partial class TerrainChunk : MeshInstance3D
     public delegate float GenerationFunction(Vector3 position);
 
     const int COUNT = 4;
+
     float[] m_values = new float[(COUNT + 2) * (COUNT + 2) * (COUNT + 2)];
     GenerationFunction m_generation_function;
+
+    Godot.Collections.Array surface_array;
+    Array<Vector3> verts;
+    Array<int> indicies;
+    Array<Vector3> normals;
+    Array<Vector2> uvs;
+
+    ArrayMesh mesh;
+
 
     public IEnumerable<Vector3> iter_cube(Vector3 a, Vector3 b)
     {
@@ -63,10 +75,49 @@ public partial class TerrainChunk : MeshInstance3D
     public void generate_mesh()
     {
 
+        surface_array = new Godot.Collections.Array();
+        surface_array.Resize((int)Mesh.ArrayType.Max);
+
+        verts = new Array<Vector3>();
+        normals = new Array<Vector3>();
+        uvs = new Array<Vector2>();
+        indicies = new Array<int>();
+
+        verts.Add(Vector3.Forward);
+        verts.Add(Vector3.Right);
+        verts.Add(Vector3.Back);
+        verts.Add(Vector3.Back);
+        verts.Add(Vector3.Left);
+        verts.Add(Vector3.Forward);
+
+
+
+        for (int i = 0; i < 6; i++)
+        {
+            indicies.Add(i);
+            normals.Add(Vector3.Up);
+            uvs.Add(Vector2.Zero);
+        }
+
+        Print(verts);
+        Print(indicies);
+
+        surface_array[(int)Mesh.ArrayType.Vertex] = verts.ToArray();
+        surface_array[(int)Mesh.ArrayType.Index] = indicies.ToArray();
+        surface_array[(int)Mesh.ArrayType.Normal] = normals.ToArray();
+        surface_array[(int)Mesh.ArrayType.TexUV] = uvs.ToArray();
+        mesh.ClearSurfaces();
+        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, surface_array);
+
     }
 
     public override void _Ready()
     {
+
+        mesh = new ArrayMesh();
+        Mesh = mesh;
+        generate_mesh();
+        
 
         m_values = new float[(COUNT + 2) * (COUNT + 2) * (COUNT + 2)];
         Print("SIZE:" + m_values.Length.ToString());
