@@ -14,7 +14,7 @@ var terrain;
 var camera;
 
 func gen_fun(x):
-	return -x.distance_to(Vector3.ZERO) + 4000 + 40.0 * MarchingCubes.perlin(x / 5.0);
+	return x.distance_to(Vector3.ZERO) - 4000 - 40.0 * MarchingCubes.perlin(x / 5.0);
 
 func get_center():
 	return global_position 

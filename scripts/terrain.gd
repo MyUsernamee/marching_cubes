@@ -2,7 +2,7 @@
 extends MeshInstance3D
 class_name MarchingCubes
 
-const COUNT = 32;
+const COUNT = 8;
 const VALUES = COUNT + 1;
 
 const last_update =0 ;
@@ -111,14 +111,34 @@ func quadize_mesh():
 	for x in range(COUNT):
 		for y in range(COUNT):
 			for z in range(COUNT):
-				verts.set(convert_pos_to_index(x, y, z),(Vector3(x, y, z) + Vector3.ONE * 0.5) / COUNT - Vector3.ONE * 0.5)
 				normals.set(convert_pos_to_index(x, y, z), get_normal(Vector3(x, y, z)))
+				var count = 0
+				var average = Vector3.ZERO;
 
 				if x * y * z == 0:
+		
+					for i in range(2):	
+						for j in range(2):	
+							for k in range(2):	
+
+								var direction = Vector3(i, j, k)
+								var a = get_value(x, y, z);
+								var b = get_value(x + direction.x, y + direction.y, z + direction.z)
+
+								if a * b >= 0:
+									continue; # No surface here
+
+
+								var _p = Vector3(x, y, z)
+								average += get_intersection(_p, direction)
+								count += 1
+
+					if count != 0:
+						average /= count
+
+					verts.set(convert_pos_to_index(x, y, z),(average) / COUNT - Vector3.ONE * 0.5)
 					continue
 
-				var average = Vector3.ZERO;
-				var count = 0
 
 				for direction in directions:
 
