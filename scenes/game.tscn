@@ -24,7 +24,3 @@ script = ExtResource("1_3o86n")
 [node name="Leaf" type="Node3D" parent="."]
 transform = Transform3D(32768, 0, 0, 0, 32768, 0, 0, 0, 32768, 0, 0, 0)
 script = ExtResource("2_dutvf")
-
-[node name="Window" type="Window" parent="."]
-initial_position = 3
-current_screen = 0

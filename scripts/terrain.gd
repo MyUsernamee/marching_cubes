@@ -2,8 +2,10 @@
 extends MeshInstance3D
 class_name MarchingCubes
 
-const COUNT = 8;
+const COUNT = 4;
 const VALUES = COUNT + 1;
+
+const last_update =0 ;
 
 @export var debug = false;
 
@@ -50,13 +52,6 @@ static func perlin(x):
 			lerp( _hash(n+170.0), _hash(n+171.0),clamp(f.x, 0.0, 1.0)),clamp(f.y, 0.0, 1.0)),clamp(f.z, 0.0, 1.0));
 
 
-func add_mesh_chunk(chunk, _position, _scale):
-	var start_index = indicies.size()
-	for vert in range(chunk.verts.size()):
-		verts.push_back(chunk.verts[vert] * _scale + _position);
-		uvs.push_back(chunk.uvs[vert]);
-		normals.push_back(chunk.normals[vert]);
-		indicies.push_back(chunk.indicies[vert] + start_index);
 
 func convert_values_to_lookup_index(values: Array, surface_level: float) -> int:
 	var lookup_index = 0;
@@ -100,8 +95,9 @@ func generate_cube(values: Array, surface_level: float) -> MeshChunk:
 			mesh_chunk.verts.append(weighted_position);
 			mesh_chunk.indicies.append(mesh_chunk.indicies.size());
 			mesh_chunk.uvs.append(Vector2.ZERO);
+			# mesh_chunk.normals.append(Vector3.ZERO)
 
-		var normal = (verticies[0] - verticies[1]).cross(verticies[2] - verticies[1]).normalized();
+		var normal = (verticies[0] - verticies[1]).cross(verticies[2] - verticies[1]);
 		# Calculate normals
 		for j in range(3):
 			mesh_chunk.normals.append(normal);
@@ -118,35 +114,46 @@ func set_value(x, y, z, value):
 	value_array[x + y * VALUES + z * VALUES * VALUES] = value;
 	needs_update = true;
 
+func add_mesh_chunk(chunk, _position, _scale):
+	var start_index = indicies.size()
+	for vert in range(chunk.verts.size()):
+		verts.push_back(chunk.verts[vert] * _scale + _position);
+		uvs.push_back(chunk.uvs[vert]);
+		normals.push_back(chunk.normals[vert]);
+		indicies.push_back(chunk.indicies[vert] + start_index);
+
 func gen_mesh():
 
 	var mesh_chunks = [];
 	mesh_chunks.resize(COUNT ** 3);
 
-	for i in range(COUNT):
-		for j in range(COUNT):
-			for k in range(COUNT):
-				# Get data
+	var _task = WorkerThreadPool.add_group_task(func temp(x):
 
-				var values = []
+		var i = x % COUNT;
+		var j = floor(x / COUNT) % COUNT;
+		var k = floor(x / COUNT**2);
 
-				for n_k in range(0, 2):
-					for n_j in range(0, 2):
-						for n_i in range(0, 2):
-							if i + n_i < 0 or i + n_i >= VALUES or j + n_j < 0 or j + n_j >= VALUES or k + n_k < 0 or k + n_k >= VALUES:
-								values.append(0.0)
-								continue;
-							values.append(get_value(i + n_i, j + n_j, k + n_k)) # Get values needed for generating a mesh for a single cell.
+		var values = []
 
-				var mesh_chunk = generate_cube(values, .5)
+		for n_k in range(0, 2):
+			for n_j in range(0, 2):
+				for n_i in range(0, 2):
+					if i + n_i < 0 or i + n_i >= VALUES or j + n_j < 0 or j + n_j >= VALUES or k + n_k < 0 or k + n_k >= VALUES:
+						values.append(0.0)
+						continue;
+					values.append(get_value(i + n_i, j + n_j, k + n_k)) # Get values needed for generating a mesh for a single cell.
 
-				mesh_chunks[i + j * COUNT + k * COUNT * COUNT] = mesh_chunk				
-				add_mesh_chunk(mesh_chunk, Vector3(i, j, k) / COUNT - Vector3.ONE * 0.5, 1.0 / COUNT)
-				
+		var mesh_chunk = generate_cube(values, .5)
+		mesh_chunks[i + j * COUNT + k * COUNT * COUNT] = [mesh_chunk,  Vector3(i, j, k) / COUNT - Vector3.ONE * 0.5, 1.0 / COUNT]				
+	, COUNT **3, true);
+
+	WorkerThreadPool.wait_for_group_task_completion(_task)
+
+	for chunk_data in mesh_chunks:
+		add_mesh_chunk(chunk_data[0], chunk_data[1], chunk_data[2])
+
 
 func regen_mesh():
-	
-
 
 	verts = PackedVector3Array()
 	uvs = PackedVector2Array()
@@ -237,5 +244,6 @@ func _process(delta: float) -> void:
 
 	if needs_update and is_ready:
 		needs_update = false;
-		if not task or WorkerThreadPool.is_task_completed(task):
-			task = WorkerThreadPool.add_task(regen_mesh, true,);
+		# if not task or WorkerThreadPool.is_task_completed(task):
+			# task = WorkerThreadPool.add_task(regen_mesh, true,);
+		regen_mesh();
