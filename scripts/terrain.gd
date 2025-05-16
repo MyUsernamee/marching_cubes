@@ -5,7 +5,7 @@ class_name MarchingCubes
 const COUNT = 8;
 const VALUES = COUNT + 1;
 
-const last_update =0 ;
+const last_update = 0;
 
 @export var debug = false;
 
@@ -16,7 +16,7 @@ var fill_task
 var is_ready = false;
 
 
-var value_array : Array[float] = [];
+var value_array: Array[float] = [];
 @export var needs_update = false;
 
 var surface_array = []
@@ -30,27 +30,29 @@ var generation_function: Callable;
 static func frac(x):
 	return x - floor(x);
 
-static func _hash(n): 
-	return frac(sin(n)*43758.5453);
+static func _hash(n):
+	return frac(sin(n) * 43758.5453);
 	
-static func perlin(x): 
+static func perlin(x):
 	var p: Vector3 = Vector3(floor(x.x), floor(x.y), floor(x.z));
 	var f: Vector3 = Vector3(frac(x.x), frac(x.y), frac(x.z));
 	
-	f = f*f*(Vector3.ONE * 3.0-2.0*f);
-	var n = p.x + p.y*57.0 + 113.0*p.z;
+	f = f * f * (Vector3.ONE * 3.0 - 2.0 * f);
+	var n = p.x + p.y * 57.0 + 113.0 * p.z;
 	
-	return lerp(lerp(lerp( _hash(n+0.0), _hash(n+1.0), clamp(f.x, 0.0, 1.0)),
-			lerp( _hash(n+57.0), _hash(n+58.0),clamp(f.x, 0.0, 1.0)),clamp(f.y, 0.0, 1.0)),
-			lerp(lerp( _hash(n+113.0), _hash(n+114.0),clamp(f.x, 0.0, 1.0)),
-			lerp( _hash(n+170.0), _hash(n+171.0),clamp(f.x, 0.0, 1.0)),clamp(f.y, 0.0, 1.0)),clamp(f.z, 0.0, 1.0));
+	return lerp(lerp(lerp(_hash(n + 0.0), _hash(n + 1.0), clamp(f.x, 0.0, 1.0)),
+			lerp(_hash(n + 57.0), _hash(n + 58.0), clamp(f.x, 0.0, 1.0)), clamp(f.y, 0.0, 1.0)),
+			lerp(lerp(_hash(n + 113.0), _hash(n + 114.0), clamp(f.x, 0.0, 1.0)),
+			lerp(_hash(n + 170.0), _hash(n + 171.0), clamp(f.x, 0.0, 1.0)), clamp(f.y, 0.0, 1.0)), clamp(f.z, 0.0, 1.0));
 
 func get_value(x, y, z):
+	if x < 0 or x >= VALUES or y < 0 or y >= VALUES or z < 0 or z >= VALUES:
+		return 0.0
 	var temp = value_array[x + y * VALUES + z * VALUES * VALUES];
 	return temp
 
 func set_value(x, y, z, value):
-	value_array[x + y * VALUES + z * VALUES * VALUES] = value;
+	value_array[x  + y  * VALUES + z * VALUES * VALUES] = value;
 	needs_update = true;
 
 func get_intersection(p, d):
@@ -71,7 +73,6 @@ func get_intersection(p, d):
 const directions = [Vector3.RIGHT, Vector3.UP, Vector3.BACK]
 
 func orth_directions(direction):
-
 	match direction:
 		Vector3.RIGHT:
 			return [Vector3.UP, Vector3.BACK]
@@ -81,7 +82,7 @@ func orth_directions(direction):
 			return [Vector3.RIGHT, Vector3.UP]
 
 func convert_pos_to_index(x, y, z):
-	return int(x) + int(y) * VALUES + int(z) * VALUES**2
+	return int(x) + int(y) * VALUES + int(z) * VALUES ** 2
 
 
 func convert_to_index(p):
@@ -97,119 +98,90 @@ func get_normal(p):
 
 	for offset in offsets:
 		var neighbor_pos = p + offset
-		if neighbor_pos.x >= 0 and neighbor_pos.x < VALUES and neighbor_pos.y >= 0 and neighbor_pos.y < VALUES and neighbor_pos.z >= 0 and neighbor_pos.z < VALUES:
-			var diff = get_value(neighbor_pos.x, neighbor_pos.y, neighbor_pos.z) - get_value(p.x, p.y, p.z)
-			normal += offset * diff
+		var diff = get_value(neighbor_pos.x, neighbor_pos.y, neighbor_pos.z) - get_value(p.x, p.y, p.z)
+		normal += offset * diff
 
 	return normal.normalized()
 
 func quadize_mesh():
+	verts.resize(VALUES ** 3)
+	normals.resize(VALUES ** 3)
+	var _mutex = Mutex.new();
 
-	verts.resize(VALUES **3)
-	normals.resize(VALUES**3)
+	var _task = WorkerThreadPool.add_group_task(func temp(_i):
+		var x = _i % VALUES
+		var y = floor(_i / VALUES) % VALUES ;
+		var z = floor(_i / VALUES ** 2);
 
-	for x in range(COUNT):
-		for y in range(COUNT):
-			for z in range(COUNT):
-				normals.set(convert_pos_to_index(x, y, z), get_normal(Vector3(x, y, z)))
-				var count = 0
-				var average = Vector3.ZERO;
+		normals.set(convert_pos_to_index(x, y, z), get_normal(Vector3(x, y, z)))
+		var count = 0
+		var average = Vector3.ZERO;
+		var flatten = Vector3.ZERO
 
-				if x * y * z == 0:
-		
-					for i in range(2):	
-						for j in range(2):	
-							for k in range(2):	
-
-								var direction = Vector3(i, j, k)
-								var a = get_value(x, y, z);
-								var b = get_value(x + direction.x, y + direction.y, z + direction.z)
-
-								if a * b >= 0:
-									continue; # No surface here
-
-
-								var _p = Vector3(x, y, z)
-								average += get_intersection(_p, direction)
-								count += 1
-
-					if count != 0:
-						average /= count
-
-					verts.set(convert_pos_to_index(x, y, z),(average) / COUNT - Vector3.ONE * 0.5)
-					continue
-
-
-				for direction in directions:
-
-					var a = get_value(x, y, z);
-					var b = get_value(x + direction.x, y + direction.y, z + direction.z)
-
-					if a * b >= 0:
-						continue; # No surface here
-
-
+		for i in range(2):
+			for j in range(2):
+				for k in range(2):
+					var direction = Vector3(i, j, k)
 					var _p = Vector3(x, y, z)
-					
-					average += get_intersection(_p, direction)
-					count += 1
 
-					var orth = orth_directions(direction)
-					var right = _p - orth[0]
-					var up = _p - orth[1]
-					var back = _p - orth[0] - orth[1]
+					if i < COUNT and j < COUNT and k < COUNT:
+						var a = get_value(x, y, z);
+						var b = get_value(x + direction.x, y + direction.y, z + direction.z)
 
+						average += get_intersection(_p, direction)
+						count += 1
 
-					if a > b:
-						indicies.append(convert_to_index(_p))
-						indicies.append(convert_to_index(right))
-						indicies.append(convert_to_index(up))
-						indicies.append(convert_to_index(right))
-						indicies.append(convert_to_index(back))
-						indicies.append(convert_to_index(up))
-					else:
-						indicies.append(convert_to_index(_p))
-						indicies.append(convert_to_index(up))
-						indicies.append(convert_to_index(right))
-						indicies.append(convert_to_index(up))
-						indicies.append(convert_to_index(back))
-						indicies.append(convert_to_index(right))
+					if i + j + k == 1 and x * y * z > 0 and i < COUNT and j < COUNT and k < COUNT:
+						var a = get_value(x, y, z);
+						var b = get_value(x + direction.x, y + direction.y, z + direction.z)
 
-				for i in range(2):	
-					for j in range(2):	
-						for k in range(2):	
-							if i + j + k == 1:
-								continue;
+						var orth = orth_directions(direction)
+						var right = _p - orth[0]
+						var up = _p - orth[1]
+						var back = _p - orth[0] - orth[1]
 
-							var direction = Vector3(i, j, k)
-							var a = get_value(x, y, z);
-							var b = get_value(x + direction.x, y + direction.y, z + direction.z)
+						mutex.lock()
+						if a > b:
+							indicies.append(convert_to_index(_p))
+							indicies.append(convert_to_index(right))
+							indicies.append(convert_to_index(up))
+							indicies.append(convert_to_index(right))
+							indicies.append(convert_to_index(back))
+							indicies.append(convert_to_index(up))
+						else:
+							indicies.append(convert_to_index(_p))
+							indicies.append(convert_to_index(up))
+							indicies.append(convert_to_index(right))
+							indicies.append(convert_to_index(up))
+							indicies.append(convert_to_index(back))
+							indicies.append(convert_to_index(right))
+						mutex.unlock();
+		if count != 0:
+			average /= count
 
-							if a * b >= 0:
-								continue; # No surface here
+			# If I am at the edge so our position on x  y or z == count 
+			# flatten us to that face
+			if x == 0:
+				average.x = 0
+			if y == 0:
+				average.y = 0
+			if z == 0:
+				average.z = 0
 
+			verts.set(convert_pos_to_index(x, y, z), (average) / COUNT - Vector3.ONE * 0.5)
+		, VALUES ** 3)
 
-							var _p = Vector3(x, y, z)
-							average += get_intersection(_p, direction)
-							count += 1
-
-				if count != 0:
-					average /= count
-					verts.set(convert_pos_to_index(x, y, z),(average) / COUNT - Vector3.ONE * 0.5)
+	WorkerThreadPool.wait_for_group_task_completion(_task)
 
 	uvs.resize(verts.size())
 
 	
-	
-
-
 func gen_mesh():
 	var start = Time.get_ticks_usec()
 	quadize_mesh()
 	print(start - Time.get_ticks_usec())
 
 func regen_mesh():
-
 	verts = PackedVector3Array()
 	uvs = PackedVector2Array()
 	normals = PackedVector3Array()
@@ -223,21 +195,19 @@ func regen_mesh():
 	gen_mesh();
 
 	if verts.size() != 0:
-	
 		mesh.clear_surfaces();
 		mesh.call_deferred("add_surface_from_arrays", Mesh.PRIMITIVE_TRIANGLES, surface_array)
 	
 
 func fill_generation(_transform):
 	# Set value to be distance from center 16, 16, 16 / 32
-
 	var group_task = WorkerThreadPool.add_group_task(func temp(index):
 		var x = index % VALUES;
-		var y = floor(index / VALUES) % VALUES
-		var z = floor(index / (VALUES**2))
-		var _position = _transform * (Vector3(x, y, z) / COUNT- 0.5 * Vector3.ONE);
+		var y = floor(index / VALUES) % VALUES 
+		var z = floor(index / (VALUES ** 2) )
+		var _position = _transform * (Vector3(x, y, z) / COUNT - 0.5 * Vector3.ONE);
 		set_value(x, y, z, generation_function.call(_position))
-	, VALUES**3, -1, );
+	, VALUES ** 3, -1, );
 
 
 	WorkerThreadPool.wait_for_group_task_completion(group_task);
@@ -248,7 +218,6 @@ func threaded_fill():
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
-
 	mesh = ArrayMesh.new();
 
 	value_array.resize(VALUES ** 3)
@@ -265,7 +234,7 @@ func _ready() -> void:
 		regen_mesh();
 
 func create(gen_fun: Callable):
-	generation_function =  gen_fun;
+	generation_function = gen_fun;
 	threaded_fill()
 
 func _exit_tree() -> void:
@@ -277,10 +246,7 @@ func _exit_tree() -> void:
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
-
-
 	if Engine.is_editor_hint():
-		
 		if needs_update:
 			fill_generation(global_transform);
 
