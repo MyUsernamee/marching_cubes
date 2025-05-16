@@ -2,8 +2,8 @@
 extends MeshInstance3D
 class_name MarchingCubes
 
-const COUNT = 8;
-const VALUES = COUNT + 1;
+const COUNT = 4;
+const VALUES = COUNT + 2;
 
 const last_update = 0;
 
@@ -45,21 +45,24 @@ static func perlin(x):
 			lerp(lerp(_hash(n + 113.0), _hash(n + 114.0), clamp(f.x, 0.0, 1.0)),
 			lerp(_hash(n + 170.0), _hash(n + 171.0), clamp(f.x, 0.0, 1.0)), clamp(f.y, 0.0, 1.0)), clamp(f.z, 0.0, 1.0));
 
+func convert_pos_to_index(x, y, z):
+	return int(x +  1) + int(y + 1) * VALUES + int(z + 1) * VALUES ** 2
+
 func get_value(x, y, z):
-	if x < 0 or x >= VALUES or y < 0 or y >= VALUES or z < 0 or z >= VALUES:
+	if x < -1 or x >= VALUES - 1 or y < -1 or y >= VALUES - 1 or z < -1 or z >= VALUES - 1:
 		return 0.0
-	var temp = value_array[x + y * VALUES + z * VALUES * VALUES];
+	var temp = value_array[convert_pos_to_index(x, y, z)];
 	return temp
 
 func set_value(x, y, z, value):
-	value_array[x  + y  * VALUES + z * VALUES * VALUES] = value;
+	value_array[convert_pos_to_index(x, y, z)] = value;
 	needs_update = true;
 
 func get_intersection(p, d):
 	var a = get_value(p.x, p.y, p.z)
 	var b = get_value(p.x + d.x, p.y + d.y, p.z + d.z)
 
-	if a * b >= 0:
+	if a * b > 0:
 		return null;
 
 	var mid_point = -a / (b - a); # Gets the 0 point
@@ -81,8 +84,6 @@ func orth_directions(direction):
 		Vector3.BACK:
 			return [Vector3.RIGHT, Vector3.UP]
 
-func convert_pos_to_index(x, y, z):
-	return int(x) + int(y) * VALUES + int(z) * VALUES ** 2
 
 
 func convert_to_index(p):
@@ -109,14 +110,13 @@ func quadize_mesh():
 	var _mutex = Mutex.new();
 
 	var _task = WorkerThreadPool.add_group_task(func temp(_i):
-		var x = _i % VALUES
-		var y = floor(_i / VALUES) % VALUES ;
-		var z = floor(_i / VALUES ** 2);
+		var x = _i % VALUES - 1
+		var y = floor(_i / VALUES) % VALUES - 1;
+		var z = floor(_i / VALUES ** 2) - 1;
 
 		normals.set(convert_pos_to_index(x, y, z), get_normal(Vector3(x, y, z)))
 		var count = 0
 		var average = Vector3.ZERO;
-		var flatten = Vector3.ZERO
 
 		for i in range(2):
 			for j in range(2):
@@ -124,19 +124,25 @@ func quadize_mesh():
 					var direction = Vector3(i, j, k)
 					var _p = Vector3(x, y, z)
 
-					if i < COUNT and j < COUNT and k < COUNT:
-						var a = get_value(x, y, z);
-						var b = get_value(x + direction.x, y + direction.y, z + direction.z)
+					verts.set(convert_to_index(_p), Vector3(x, y, z) / COUNT - Vector3.ONE * 0.5)
 
-						average += get_intersection(_p, direction)
-						count += 1
+					var a = get_value(x, y, z);
+					var b = get_value(x + direction.x, y + direction.y, z + direction.z)
 
-					if i + j + k == 1 and x * y * z > 0 and i < COUNT and j < COUNT and k < COUNT:
-						var a = get_value(x, y, z);
-						var b = get_value(x + direction.x, y + direction.y, z + direction.z)
+
+					if a * b >= 0:
+						continue;
+
+					var intersection = get_intersection(_p, direction)
+					average += intersection
+					count += 1
+
+
+					if i + j + k == 1 and x >= 0 and y >= 0 and z >= 0:
 
 						var orth = orth_directions(direction)
 						var right = _p - orth[0]
+						
 						var up = _p - orth[1]
 						var back = _p - orth[0] - orth[1]
 
@@ -156,19 +162,30 @@ func quadize_mesh():
 							indicies.append(convert_to_index(back))
 							indicies.append(convert_to_index(right))
 						mutex.unlock();
+		var origin = Vector3(x, y, z) / COUNT - Vector3.ONE * 0.5;
 		if count != 0:
 			average /= count
 
+
 			# If I am at the edge so our position on x  y or z == count 
 			# flatten us to that face
-			if x == 0:
-				average.x = 0
-			if y == 0:
-				average.y = 0
-			if z == 0:
-				average.z = 0
+			# if x == 0:
+			# 	average.x = 0
+			# if y == 0:
+			# 	average.y = 0
+			# if z == 0:
+			# 	average.z = 0
 
-			verts.set(convert_pos_to_index(x, y, z), (average) / COUNT - Vector3.ONE * 0.5)
+			var vert = average / COUNT - Vector3.ONE * 0.5;
+			vert.x = clamp(vert.x, -0.5,  0.5)
+			vert.y = clamp(vert.y, -0.5,  0.5)
+			vert.z = clamp(vert.z, -0.5,  0.5)
+
+			verts.set(convert_pos_to_index(x, y, z), vert)
+
+		if debug:
+			DebugDraw3D.draw_arrow(global_transform * origin, global_transform * verts.get(convert_pos_to_index(x, y, z)), Color.YELLOW, 0.01, true, 5)
+
 		, VALUES ** 3)
 
 	WorkerThreadPool.wait_for_group_task_completion(_task)
@@ -194,7 +211,7 @@ func regen_mesh():
 	
 	gen_mesh();
 
-	if verts.size() != 0:
+	if indicies.size() != 0:
 		mesh.clear_surfaces();
 		mesh.call_deferred("add_surface_from_arrays", Mesh.PRIMITIVE_TRIANGLES, surface_array)
 	
@@ -202,9 +219,9 @@ func regen_mesh():
 func fill_generation(_transform):
 	# Set value to be distance from center 16, 16, 16 / 32
 	var group_task = WorkerThreadPool.add_group_task(func temp(index):
-		var x = index % VALUES;
-		var y = floor(index / VALUES) % VALUES 
-		var z = floor(index / (VALUES ** 2) )
+		var x = index % VALUES - 1;
+		var y = floor(index / VALUES) % VALUES - 1 
+		var z = floor(index / (VALUES ** 2) ) - 1
 		var _position = _transform * (Vector3(x, y, z) / COUNT - 0.5 * Vector3.ONE);
 		set_value(x, y, z, generation_function.call(_position))
 	, VALUES ** 3, -1, );
@@ -252,9 +269,9 @@ func _process(delta: float) -> void:
 
 		if debug:
 			# Draw every point
-			for x in range(COUNT):
-				for y in range(COUNT):
-					for z in range(COUNT):
+			for x in range(-1, VALUES):
+				for y in range(-1, VALUES):
+					for z in range(-1, VALUES):
 						var p = Vector3(x, y, z) / COUNT - Vector3.ONE * 0.5
 						var value = get_value(x, y, z)
 						var color = Color(value, 0.0, 0.0, 1.0)
