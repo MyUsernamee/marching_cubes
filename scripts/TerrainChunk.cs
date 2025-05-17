@@ -14,7 +14,7 @@ public partial class TerrainChunk : MeshInstance3D
 {
     public delegate float GenerationFunction(Vector3 position);
 
-    const int COUNT = 4;
+    const int COUNT = 16;
 
     float[] m_values = new float[(COUNT + 2) * (COUNT + 2) * (COUNT + 2)];
     GenerationFunction m_generation_function;
@@ -45,6 +45,9 @@ public partial class TerrainChunk : MeshInstance3D
     int convert_to_index(int x, int y, int z) {
         return (x + 1) + (y + 1) * (COUNT + 2) + (z + 1) * (COUNT + 2) * (COUNT + 2);
     }
+    int convert_to_index(Vector3 p) {
+        return convert_to_index((int)p.X, (int)p.Y, (int)p.Z);
+    }
 
     public float get_value(int x, int y, int z)
     {
@@ -72,6 +75,102 @@ public partial class TerrainChunk : MeshInstance3D
         }
     }
 
+    static Vector3[] DIRECTIONS = {
+        Vector3.Back,
+        Vector3.Right,
+        Vector3.Up
+    };
+
+    static Vector3[][] ORTH_DIRECTIONS = {
+        // Orthogonal to Vector3.Back (Z+)
+        new Vector3[] { Vector3.Right, Vector3.Up },
+        // Orthogonal to Vector3.Right (X+)
+        new Vector3[] { Vector3.Up, Vector3.Back },
+        // Orthogonal to Vector3.Up (Y+)
+        new Vector3[] { Vector3.Back, Vector3.Right }
+    };
+
+    public Vector3[] get_orthogonal_driections(Vector3 d) {
+        for (int i = 0; i < DIRECTIONS.Length; i++)
+        {
+            if (d == DIRECTIONS[i])
+                return ORTH_DIRECTIONS[i];
+        }
+        throw new ArgumentException("Invalid direction vector", nameof(d));
+    }
+
+    public float get_intersection_point(float a, float b) {
+        return -a / (b - a);
+    }
+
+    public void generate_quads()
+    {
+
+        foreach (var _p in iter_cube(-Vector3.One, Vector3.One * (COUNT)))
+        {
+            verts[convert_to_index(_p)] = (_p / COUNT - Vector3.One * 0.5f);
+            normals[convert_to_index(_p)] = (Vector3.Up);
+            uvs[convert_to_index(_p)] = (Vector2.Zero);
+
+            Vector3 average = Vector3.Zero;
+            int count = 0;
+
+            foreach (var direction in iter_cube(Vector3.Zero, Vector3.One * 2))
+            {
+
+
+
+
+                float a = get_value(_p);
+                float b = get_value(_p + direction);
+
+                if (a * b >= 0)
+                    continue; // No Edge here
+
+                var mid_point = get_intersection_point(a, b) * direction + _p;
+                average += mid_point;
+                count += 1;
+
+                if (direction.X + direction.Y + direction.Z != 1 || _p.X * _p.Y * _p.Z <= 0.0)
+                    continue;
+
+                var orth_directions = get_orthogonal_driections(direction);
+                var right = _p - orth_directions[0];
+                var up = _p - orth_directions[1];
+                var corner = _p - orth_directions[0] - orth_directions[1];
+
+                if (a > b)
+                {
+                    indicies.Add(convert_to_index(_p));
+                    indicies.Add(convert_to_index(right));
+                    indicies.Add(convert_to_index(up));
+                    indicies.Add(convert_to_index(right));
+                    indicies.Add(convert_to_index(corner));
+                    indicies.Add(convert_to_index(up));
+                }
+                else
+                {
+                    indicies.Add(convert_to_index(_p));
+                    indicies.Add(convert_to_index(up));
+                    indicies.Add(convert_to_index(right));
+                    indicies.Add(convert_to_index(up));
+                    indicies.Add(convert_to_index(corner));
+                    indicies.Add(convert_to_index(right));
+                }
+
+
+
+            }
+
+            if (count != 0)
+            {
+                verts[convert_to_index(_p)] = (average / count) / COUNT - Vector3.One * 0.5f;
+            }
+
+        }
+
+    }
+
     public void generate_mesh()
     {
 
@@ -83,23 +182,11 @@ public partial class TerrainChunk : MeshInstance3D
         uvs = new Array<Vector2>();
         indicies = new Array<int>();
 
-        verts.Add(Vector3.Forward);
-        verts.Add(Vector3.Right);
-        verts.Add(Vector3.Back);
-        verts.Add(Vector3.Back);
-        verts.Add(Vector3.Left);
-        verts.Add(Vector3.Forward);
+        verts.Resize((int)Math.Pow(COUNT + 2, 3));
+        normals.Resize((int)Math.Pow(COUNT + 2, 3));
+        uvs.Resize((int)Math.Pow(COUNT + 2, 3));
 
-
-
-        for (int i = 0; i < 6; i++)
-        {
-            indicies.Add(i);
-            normals.Add(Vector3.Up);
-            uvs.Add(Vector2.Zero);
-        }
-
-        Print(verts);
+        generate_quads();
         Print(indicies);
 
         surface_array[(int)Mesh.ArrayType.Vertex] = verts.ToArray();
@@ -116,7 +203,6 @@ public partial class TerrainChunk : MeshInstance3D
 
         mesh = new ArrayMesh();
         Mesh = mesh;
-        generate_mesh();
         
 
         m_values = new float[(COUNT + 2) * (COUNT + 2) * (COUNT + 2)];
@@ -127,6 +213,7 @@ public partial class TerrainChunk : MeshInstance3D
             return (float)(p.Length() - 1.0);
         };
         fill_values();
+        generate_mesh();
     }
 
     public override void _Process(double _delta)
