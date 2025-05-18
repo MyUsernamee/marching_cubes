@@ -7,6 +7,7 @@ using Godot;
 using static Godot.GD;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 [Tool]
 [GlobalClass]
@@ -14,7 +15,13 @@ public partial class TerrainChunk : MeshInstance3D
 {
     public delegate float GenerationFunction(Vector3 position);
 
-    const int COUNT = 16;
+    const int COUNT = 8;
+
+    [Export]
+    bool debug;
+
+    [Export]
+    bool needs_update;
 
     float[] m_values = new float[(COUNT + 2) * (COUNT + 2) * (COUNT + 2)];
     GenerationFunction m_generation_function;
@@ -66,6 +73,20 @@ public partial class TerrainChunk : MeshInstance3D
         set_value((int)p.X, (int)p.Y, (int)p.Z, value);
     }
 
+    public Vector3 get_normal(Vector3 position) {
+        Vector3 normal = Vector3.Zero;
+        float a = get_value(position);
+
+        foreach (var direction in DIRECTIONS)
+        {
+            float value = get_value(position + direction);
+            normal += direction * (value - a);
+        }
+
+        
+        return normal;
+    }
+
     public void fill_values()
     {
         foreach (var _p in iter_cube(-Vector3.One, Vector3.One * (COUNT + 1)))
@@ -109,7 +130,7 @@ public partial class TerrainChunk : MeshInstance3D
         foreach (var _p in iter_cube(-Vector3.One, Vector3.One * (COUNT)))
         {
             verts[convert_to_index(_p)] = (_p / COUNT - Vector3.One * 0.5f);
-            normals[convert_to_index(_p)] = (Vector3.Up);
+            normals[convert_to_index(_p)] = get_normal(_p);
             uvs[convert_to_index(_p)] = (Vector2.Zero);
 
             Vector3 average = Vector3.Zero;
@@ -117,9 +138,6 @@ public partial class TerrainChunk : MeshInstance3D
 
             foreach (var direction in iter_cube(Vector3.Zero, Vector3.One * 2))
             {
-
-
-
 
                 float a = get_value(_p);
                 float b = get_value(_p + direction);
@@ -131,7 +149,7 @@ public partial class TerrainChunk : MeshInstance3D
                 average += mid_point;
                 count += 1;
 
-                if (direction.X + direction.Y + direction.Z != 1 || _p.X * _p.Y * _p.Z <= 0.0)
+                if (direction.X + direction.Y + direction.Z != 1 || _p.X < 0.0 || _p.Y < 0.0 || _p.Z < 0.0)
                     continue;
 
                 var orth_directions = get_orthogonal_driections(direction);
@@ -164,7 +182,12 @@ public partial class TerrainChunk : MeshInstance3D
 
             if (count != 0)
             {
-                verts[convert_to_index(_p)] = (average / count) / COUNT - Vector3.One * 0.5f;
+                var vert_position =  (average / count) / COUNT - Vector3.One * 0.5f;
+                vert_position.X = Math.Clamp(vert_position.X, -0.5f, 0.5f);
+                vert_position.Y = Math.Clamp(vert_position.Y, -0.5f, 0.5f);
+                vert_position.Z = Math.Clamp(vert_position.Z, -0.5f, 0.5f);
+                verts[convert_to_index(_p)] = vert_position;
+
             }
 
         }
@@ -218,6 +241,31 @@ public partial class TerrainChunk : MeshInstance3D
 
     public override void _Process(double _delta)
     {
+
+        if (needs_update) {
+            needs_update = false;
+            fill_values();
+            generate_mesh();
+        }
+
+        if (debug) {
+            foreach (var _p in iter_cube(-Vector3.One, Vector3.One * (COUNT + 1)))
+            {
+                
+                var vert = verts[convert_to_index(_p)];
+                DebugDraw3D.DrawSphere(GlobalTransform * vert, 0.01f, new Color(1, 0, 0, 1), 0);
+            }
+
+            for (int i = 0; i < indicies.Count; i++) {
+                if (indicies[i] > verts.Count || indicies[i] < 0) {
+                    continue;
+                }
+                var vert = verts[indicies[i]];
+                DebugDraw3D.DrawText(GlobalTransform * vert, indicies[i].ToString());
+            }
+        }
+
+        return;
         foreach (var _p in iter_cube(-Vector3.One, Vector3.One * (COUNT + 1)))
         {
             var value = get_value(_p);
