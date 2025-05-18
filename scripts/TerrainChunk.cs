@@ -15,7 +15,7 @@ public partial class TerrainChunk : MeshInstance3D
 {
     public delegate float GenerationFunction(Vector3 position);
 
-    const int COUNT = 8;
+    const int COUNT = 4;
 
     [Export]
     bool debug;
@@ -258,8 +258,7 @@ public partial class TerrainChunk : MeshInstance3D
 
     public void create(Callable generation_function) {
         m_generation_function = generation_function;
-        fill_values();
-        generate_mesh();
+        needs_update = true;
 
     }
 
@@ -282,7 +281,10 @@ public partial class TerrainChunk : MeshInstance3D
 
         if (needs_update) {
             needs_update = false;
+            var start = Time.GetTicksUsec();
             fill_values();
+            Print(Time.GetTicksUsec() - start);
+            
             generate_mesh();
         }
 

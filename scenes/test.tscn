@@ -5,6 +5,6 @@
 [node name="Game" type="Node3D"]
 
 [node name="TerrainChunk" type="MeshInstance3D" parent="."]
-transform = Transform3D(2.93482, 0, 0, 0, 2.93482, 0, 0, 0, 2.93482, -0.0827193, 0.433801, 0.684583)
+transform = Transform3D(2.93482, 0, 0, 0, 2.93482, 0, 0, 0, 2.93482, 0.081656, 0.433801, -0.284823)
 script = ExtResource("1_errlg")
 metadata/_custom_type_script = "uid://cynt0saeblp1r"

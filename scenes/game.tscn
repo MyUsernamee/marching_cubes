@@ -13,6 +13,7 @@ background_mode = 2
 sky = SubResource("Sky_gey1s")
 
 [node name="Game" type="Node3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.000332355, -0.0265198, 0.00305176)
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_71kqe")

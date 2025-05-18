@@ -7,9 +7,12 @@ var is_split = false;
 var level = 0;
 var has_terrain = false;
 
-const WIGGLE_ROOM = 0.5
+static var gen_list = []; # Stores a list of the chunks that need terrain generated.
+# High priority are added to the front, lower are added to the back.
 
-var terrain;
+const WIGGLE_ROOM = 1.5
+
+var terrain: TerrainChunk;
 
 var camera;
 
@@ -58,6 +61,10 @@ func gen_terrain():
 	if has_terrain:
 		return;
 
+	if terrain:
+		terrain.show();
+		return;
+
 	terrain = TerrainChunk.new();
 	add_child(terrain)
 	terrain.create(gen_fun)
@@ -68,7 +75,7 @@ func unload_terrain():
 	if not has_terrain:
 		return;
 
-	terrain.queue_free();
+	terrain.hide();
 	has_terrain = false
 
 
@@ -97,9 +104,6 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	
-	if not has_terrain and not is_split:
-		gen_terrain()
-
 	auto_split()
 
 	return;
