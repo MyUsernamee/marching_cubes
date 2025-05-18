@@ -15,7 +15,7 @@ public partial class TerrainChunk : MeshInstance3D
 {
     public delegate float GenerationFunction(Vector3 position);
 
-    const int COUNT = 16;
+    const int COUNT = 8;
 
     [Export]
     bool debug;
@@ -29,6 +29,7 @@ public partial class TerrainChunk : MeshInstance3D
     Godot.Collections.Array surface_array;
     Array<Vector3> verts;
     Array<int> indicies;
+    Godot.Mutex indicies_mutex = new Godot.Mutex();
     Array<Vector3> normals;
     Array<Vector2> uvs;
 
@@ -87,14 +88,7 @@ public partial class TerrainChunk : MeshInstance3D
         return normal;
     }
 
-    public void fill_values()
-    {
-        foreach (var _p in iter_cube(-Vector3.One, Vector3.One * (COUNT + 1)))
-        {
-            var position = ((_p + Vector3.One * 0.5f) / COUNT - Vector3.One * 0.5f);
-            set_value(_p, (float)m_generation_function.Call(GlobalTransform * position));
-        }
-    }
+    
 
     static Vector3[] DIRECTIONS = {
         Vector3.Back,
@@ -124,10 +118,43 @@ public partial class TerrainChunk : MeshInstance3D
         return -a / (b - a);
     }
 
+    public void par_for_cube(Vector3 start, Vector3 end, Callable function)
+    {
+
+        int length = (int)(end.X - start.X);
+        int width = (int)(end.Y - start.Y);
+        int height = (int)(end.Y - start.Y);
+        int elements = length * width * height;
+
+        var task = WorkerThreadPool.AddGroupTask(Callable.From<int>((index) =>
+        {
+            int x = index % length;
+            int y = (int)(index / length) % width;
+            int z = (int)(index / length / width);
+
+
+            function.Call(new Vector3(x, y, z) + start);
+
+        }), elements);
+
+        WorkerThreadPool.WaitForGroupTaskCompletion(task);
+
+    }
+
+    public void fill_values()
+    {
+        par_for_cube(-Vector3.One, Vector3.One * (COUNT + 1), Callable.From<Vector3>((_p) =>
+        {
+            var position = ((_p + Vector3.One * 0.5f) / COUNT - Vector3.One * 0.5f);
+            set_value(_p, (float)m_generation_function.Call(GlobalTransform * position));
+        }));
+    }
+
     public void generate_quads()
     {
 
-        foreach (var _p in iter_cube(-Vector3.One, Vector3.One * (COUNT)))
+
+        par_for_cube (-Vector3.One, Vector3.One * (COUNT),  Callable.From<Vector3>((_p) =>
         {
             verts[convert_to_index(_p)] = (_p / COUNT - Vector3.One * 0.5f);
             normals[convert_to_index(_p)] = get_normal(_p);
@@ -139,7 +166,7 @@ public partial class TerrainChunk : MeshInstance3D
             foreach (var direction in iter_cube(Vector3.Zero, Vector3.One * 2))
             {
 
-                
+
                 float a = get_value(_p);
                 float b = get_value(_p + direction);
 
@@ -160,6 +187,7 @@ public partial class TerrainChunk : MeshInstance3D
                 var up = _p - orth_directions[1];
                 var corner = _p - orth_directions[0] - orth_directions[1];
 
+                indicies_mutex.Lock();
                 if (a > b)
                 {
                     indicies.Add(convert_to_index(_p));
@@ -178,6 +206,7 @@ public partial class TerrainChunk : MeshInstance3D
                     indicies.Add(convert_to_index(corner));
                     indicies.Add(convert_to_index(right));
                 }
+                indicies_mutex.Unlock();
 
 
 
@@ -185,7 +214,7 @@ public partial class TerrainChunk : MeshInstance3D
 
             if (count != 0)
             {
-                var vert_position =  (average / count) / COUNT - Vector3.One * 0.5f;
+                var vert_position = (average / count) / COUNT - Vector3.One * 0.5f;
                 // vert_position.X = Math.Clamp(vert_position.X, -0.5f, 0.5f);
                 // vert_position.Y = Math.Clamp(vert_position.Y, -0.5f, 0.5f);
                 // vert_position.Z = Math.Clamp(vert_position.Z, -0.5f, 0.5f);
@@ -193,7 +222,7 @@ public partial class TerrainChunk : MeshInstance3D
 
             }
 
-        }
+        }));
 
     }
 
@@ -239,6 +268,10 @@ public partial class TerrainChunk : MeshInstance3D
 
         mesh = new ArrayMesh();
         Mesh = mesh;
+        m_generation_function = Callable.From<Vector3, float>((Vector3 _p) =>
+        {
+            return _p.Length() - 1.0f;
+        });
         
 
         m_values = new float[(COUNT + 2) * (COUNT + 2) * (COUNT + 2)];
