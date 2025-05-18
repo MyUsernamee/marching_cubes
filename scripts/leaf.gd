@@ -58,7 +58,7 @@ func gen_terrain():
 	if has_terrain:
 		return;
 
-	terrain = MarchingCubes.new();
+	terrain = TerrainChunk.new();
 	add_child(terrain)
 	terrain.create(gen_fun)
 	terrain.sorting_offset = get_world_size().x * 100.0;

@@ -15,7 +15,7 @@ public partial class TerrainChunk : MeshInstance3D
 {
     public delegate float GenerationFunction(Vector3 position);
 
-    const int COUNT = 8;
+    const int COUNT = 16;
 
     [Export]
     bool debug;
@@ -24,7 +24,7 @@ public partial class TerrainChunk : MeshInstance3D
     bool needs_update;
 
     float[] m_values = new float[(COUNT + 2) * (COUNT + 2) * (COUNT + 2)];
-    GenerationFunction m_generation_function;
+    Callable m_generation_function;
 
     Godot.Collections.Array surface_array;
     Array<Vector3> verts;
@@ -92,7 +92,7 @@ public partial class TerrainChunk : MeshInstance3D
         foreach (var _p in iter_cube(-Vector3.One, Vector3.One * (COUNT + 1)))
         {
             var position = ((_p + Vector3.One * 0.5f) / COUNT - Vector3.One * 0.5f);
-            set_value(_p, m_generation_function(GlobalTransform * position));
+            set_value(_p, (float)m_generation_function.Call(GlobalTransform * position));
         }
     }
 
@@ -139,6 +139,7 @@ public partial class TerrainChunk : MeshInstance3D
             foreach (var direction in iter_cube(Vector3.Zero, Vector3.One * 2))
             {
 
+                
                 float a = get_value(_p);
                 float b = get_value(_p + direction);
 
@@ -148,6 +149,8 @@ public partial class TerrainChunk : MeshInstance3D
                 var mid_point = get_intersection_point(a, b) * direction + _p;
                 average += mid_point;
                 count += 1;
+
+
 
                 if (direction.X + direction.Y + direction.Z != 1 || _p.X < 0.0 || _p.Y < 0.0 || _p.Z < 0.0)
                     continue;
@@ -183,9 +186,9 @@ public partial class TerrainChunk : MeshInstance3D
             if (count != 0)
             {
                 var vert_position =  (average / count) / COUNT - Vector3.One * 0.5f;
-                vert_position.X = Math.Clamp(vert_position.X, -0.5f, 0.5f);
-                vert_position.Y = Math.Clamp(vert_position.Y, -0.5f, 0.5f);
-                vert_position.Z = Math.Clamp(vert_position.Z, -0.5f, 0.5f);
+                // vert_position.X = Math.Clamp(vert_position.X, -0.5f, 0.5f);
+                // vert_position.Y = Math.Clamp(vert_position.Y, -0.5f, 0.5f);
+                // vert_position.Z = Math.Clamp(vert_position.Z, -0.5f, 0.5f);
                 verts[convert_to_index(_p)] = vert_position;
 
             }
@@ -210,14 +213,24 @@ public partial class TerrainChunk : MeshInstance3D
         uvs.Resize((int)Math.Pow(COUNT + 2, 3));
 
         generate_quads();
-        Print(indicies);
+        
 
         surface_array[(int)Mesh.ArrayType.Vertex] = verts.ToArray();
         surface_array[(int)Mesh.ArrayType.Index] = indicies.ToArray();
         surface_array[(int)Mesh.ArrayType.Normal] = normals.ToArray();
         surface_array[(int)Mesh.ArrayType.TexUV] = uvs.ToArray();
-        mesh.ClearSurfaces();
-        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, surface_array);
+
+        if (verts.Count != 0 && indicies.Count != 0) {
+            mesh.ClearSurfaces();
+            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, surface_array);
+        }
+
+    }
+
+    public void create(Callable generation_function) {
+        m_generation_function = generation_function;
+        fill_values();
+        generate_mesh();
 
     }
 
@@ -229,14 +242,6 @@ public partial class TerrainChunk : MeshInstance3D
         
 
         m_values = new float[(COUNT + 2) * (COUNT + 2) * (COUNT + 2)];
-        Print("SIZE:" + m_values.Length.ToString());
-
-        m_generation_function = (Vector3 p) =>
-        {
-            return (float)(p.Length() - 1.0);
-        };
-        fill_values();
-        generate_mesh();
     }
 
     public override void _Process(double _delta)
