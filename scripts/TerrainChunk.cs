@@ -15,7 +15,12 @@ public partial class TerrainChunk : MeshInstance3D
 {
     public delegate float GenerationFunction(Vector3 position);
 
-    const int COUNT = 4;
+    public static int COUNT = 2;
+
+    public static int get_count()
+    {
+        return COUNT;
+    }
 
     [Export]
     bool debug;
@@ -34,6 +39,12 @@ public partial class TerrainChunk : MeshInstance3D
     Array<Vector2> uvs;
 
     ArrayMesh mesh;
+
+    public static float _generation_function( Vector3 x)
+
+    {
+        return x.Y;
+    }
 
 
     public IEnumerable<Vector3> iter_cube(Vector3 a, Vector3 b)
@@ -209,7 +220,6 @@ public partial class TerrainChunk : MeshInstance3D
                 indicies_mutex.Unlock();
 
 
-
             }
 
             if (count != 0)
@@ -240,7 +250,8 @@ public partial class TerrainChunk : MeshInstance3D
         verts.Resize((int)Math.Pow(COUNT + 2, 3));
         normals.Resize((int)Math.Pow(COUNT + 2, 3));
         uvs.Resize((int)Math.Pow(COUNT + 2, 3));
-
+        
+        var start = Time.GetTicksUsec();
         generate_quads();
         
 
@@ -249,10 +260,12 @@ public partial class TerrainChunk : MeshInstance3D
         surface_array[(int)Mesh.ArrayType.Normal] = normals.ToArray();
         surface_array[(int)Mesh.ArrayType.TexUV] = uvs.ToArray();
 
+        start = Time.GetTicksUsec();
         if (verts.Count != 0 && indicies.Count != 0) {
             mesh.ClearSurfaces();
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, surface_array);
         }
+        
 
     }
 
@@ -281,9 +294,7 @@ public partial class TerrainChunk : MeshInstance3D
 
         if (needs_update) {
             needs_update = false;
-            var start = Time.GetTicksUsec();
             fill_values();
-            Print(Time.GetTicksUsec() - start);
             
             generate_mesh();
         }
