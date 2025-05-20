@@ -17,13 +17,20 @@ public partial class Leaf : Node3D
     public bool built    = false;
     public bool building = false;
 
-    private const float WIGGLE_ROOM = 0.5f;
+    private const float WIGGLE_ROOM = 0.75f;
 
     public TerrainChunk terrain;
+    [Export]
     public Camera3D     camera;
 
+    public static Resource terrain_material = Load("res://addons/prototype_mini_bundle/M_prototype_green.tres");
+
+    public static Vector3 camera_position;
 
     FastNoiseLite noise = new FastNoiseLite();
+    bool  same_sign = true;
+
+    static Timer split_timer;
 
     // --------------------------------------------------------------------
     //  Functions (names preserved)
@@ -31,9 +38,10 @@ public partial class Leaf : Node3D
     public float gen_fun(Vector3 x)
     {
 
-        
 
-        return x.DistanceTo(Vector3.Zero) - 40_000f;
+
+        return x.DistanceTo(Vector3.Zero) - 4_000f
+            - 50.0f * noise.GetNoise3D(x.X, x.Y, x.Z);
     }
 
     public Vector3 get_center() => GlobalPosition;
@@ -61,28 +69,9 @@ public partial class Leaf : Node3D
 
     public bool should_split()
     {
-        // Are all sample points the same sign?
-        bool  same_sign = true;
-        float value     = 0f;
+        
 
-        for (int i = -1; i <= 1; i++)
-        for (int j = -1; j <= 1; j++)
-        for (int k = -1; k <= 1; k++)
-        {
-            float local_value = Mathf.Sign(
-                gen_fun(GlobalTransform * (new Vector3(i, j, k) * 0.5f)));
-
-            if (i + j + k == -3)   // first corner visited
-            {
-                value = local_value;
-                continue;
-            }
-
-            if (!Mathf.IsEqualApprox(local_value, value))
-                same_sign = false;
-        }
-
-        return is_inside(camera.GlobalPosition, WIGGLE_ROOM) &&
+        return is_inside(camera_position, WIGGLE_ROOM) &&
                (get_world_size().X > TerrainChunk.get_count()) &&
                !same_sign;
     }
@@ -91,7 +80,7 @@ public partial class Leaf : Node3D
     {
         Leaf parent = GetParent() as Leaf;
 
-        return !is_inside(camera.GlobalPosition, WIGGLE_ROOM) &&
+        return !is_inside(camera_position, WIGGLE_ROOM) &&
                is_split &&
                parent != null &&
                !parent.should_combine();
@@ -127,13 +116,15 @@ public partial class Leaf : Node3D
             return;
 
         building = false;
-        built    = true;
+        built = true;
 
         terrain = new TerrainChunk();
         AddChild(terrain);
 
         terrain.create(Callable.From<Vector3, float>(gen_fun));
-        has_terrain            = true;
+        terrain.MaterialOverride = (Material)terrain_material;
+        has_terrain = true;
+
     }
 
     public void gen_terrain()
@@ -184,12 +175,42 @@ public partial class Leaf : Node3D
     // --------------------------------------------------------------------
     public override void _Ready()
     {
-        camera ??= GetNode<Camera3D>("/root/Game/Camera3D");
+        // Are all sample points the same sign?
+        float value = 0f;
+
+        for (int i = -1; i <= 1; i++)
+            for (int j = -1; j <= 1; j++)
+                for (int k = -1; k <= 1; k++)
+                {
+                    float local_value = Mathf.Sign(
+                        gen_fun(GlobalTransform * (new Vector3(i, j, k) * 0.5f)));
+
+                    if (i + j + k == -3)   // first corner visited
+                    {
+                        value = local_value;
+                        continue;
+                    }
+
+                    if (!Mathf.IsEqualApprox(local_value, value))
+                        same_sign = false;
+                }
+
+        if (split_timer == null)
+        {
+            split_timer = new Timer();
+            split_timer.Autostart = true;
+            split_timer.OneShot = false;
+            split_timer.WaitTime = 0.5f;
+            AddChild(split_timer);
+        }
+
+        split_timer.Connect("timeout", Callable.From(auto_split));
+
+
     }
 
     public override void _Process(double delta)
     {
-        auto_split();
 
         if (!built && !building && !is_split)
             gen_terrain();
@@ -197,7 +218,10 @@ public partial class Leaf : Node3D
         if (is_split && (built || building))
             unload_terrain();
 
+        if (level == 0)
+            camera_position = camera.GlobalPosition;
+
         // Debug drawing (commented out in original)
-        DebugDraw3D.DrawBoxAb(GlobalTransform * Vector3.One * -0.5f, GlobalTransform * Vector3.One * 0.5f);
+        // DebugDraw3D.DrawBoxAb(GlobalTransform * Vector3.One * -0.5f, GlobalTransform * Vector3.One * 0.5f);
     }
 }

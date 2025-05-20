@@ -37,14 +37,14 @@ public partial class TerrainLoadingManager : Node
             if (level.Count == 0)
                 continue;
 
-            var chunk = level[0];
-            level.RemoveAt(0); // Pop Chunk from front
+            var chunk = level[level.Count - 1];
+            level.RemoveAt(level.Count - 1);
 
             if (chunk == null || !chunk.IsInsideTree())
                 continue;
 
             chunk.Call("build_terrain");
-            if (Time.GetTicksUsec() - start_time > 8000)
+            if (Time.GetTicksUsec() - start_time > 10000)
                 return;
         }
 

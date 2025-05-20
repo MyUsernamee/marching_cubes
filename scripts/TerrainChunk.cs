@@ -8,6 +8,7 @@ using static Godot.GD;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Reflection.Metadata;
 
 [Tool]
 [GlobalClass]
@@ -15,7 +16,7 @@ public partial class TerrainChunk : MeshInstance3D
 {
     public delegate float GenerationFunction(Vector3 position);
 
-    public static int COUNT = 2;
+    public static int COUNT = 8;
 
     public static int get_count()
     {
@@ -129,7 +130,7 @@ public partial class TerrainChunk : MeshInstance3D
         return -a / (b - a);
     }
 
-    public void par_for_cube(Vector3 start, Vector3 end, Callable function)
+    public long par_for_cube(Vector3 start, Vector3 end, Callable function)
     {
 
         int length = (int)(end.X - start.X);
@@ -146,26 +147,28 @@ public partial class TerrainChunk : MeshInstance3D
 
             function.Call(new Vector3(x, y, z) + start);
 
-        }), elements);
+        }), elements, -1, true);
 
-        WorkerThreadPool.WaitForGroupTaskCompletion(task);
+        return task;
 
     }
 
     public void fill_values()
     {
-        par_for_cube(-Vector3.One, Vector3.One * (COUNT + 1), Callable.From<Vector3>((_p) =>
+        var t = par_for_cube(-Vector3.One, Vector3.One * (COUNT + 1), Callable.From<Vector3>((_p) =>
         {
             var position = ((_p + Vector3.One * 0.5f) / COUNT - Vector3.One * 0.5f);
             set_value(_p, (float)m_generation_function.Call(GlobalTransform * position));
         }));
+
+        WorkerThreadPool.WaitForGroupTaskCompletion(t);
     }
 
     public void generate_quads()
     {
 
 
-        par_for_cube (-Vector3.One, Vector3.One * (COUNT),  Callable.From<Vector3>((_p) =>
+        var t = par_for_cube(-Vector3.One, Vector3.One * (COUNT), Callable.From<Vector3>((_p) =>
         {
             verts[convert_to_index(_p)] = (_p / COUNT - Vector3.One * 0.5f);
             normals[convert_to_index(_p)] = get_normal(_p);
@@ -234,6 +237,13 @@ public partial class TerrainChunk : MeshInstance3D
 
         }));
 
+        WorkerThreadPool.WaitForGroupTaskCompletion(t);
+
+    }
+
+    public void build_collisions()
+    {
+
     }
 
     public void generate_mesh()
@@ -250,10 +260,10 @@ public partial class TerrainChunk : MeshInstance3D
         verts.Resize((int)Math.Pow(COUNT + 2, 3));
         normals.Resize((int)Math.Pow(COUNT + 2, 3));
         uvs.Resize((int)Math.Pow(COUNT + 2, 3));
-        
+
         var start = Time.GetTicksUsec();
         generate_quads();
-        
+
 
         surface_array[(int)Mesh.ArrayType.Vertex] = verts.ToArray();
         surface_array[(int)Mesh.ArrayType.Index] = indicies.ToArray();
@@ -261,11 +271,14 @@ public partial class TerrainChunk : MeshInstance3D
         surface_array[(int)Mesh.ArrayType.TexUV] = uvs.ToArray();
 
         start = Time.GetTicksUsec();
-        if (verts.Count != 0 && indicies.Count != 0) {
+        if (verts.Count != 0 && indicies.Count != 0)
+        {
             mesh.ClearSurfaces();
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, surface_array);
+            CreateTrimeshCollision();
+            Print(GetChildren());
         }
-        
+
 
     }
 

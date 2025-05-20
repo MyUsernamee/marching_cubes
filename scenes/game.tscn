@@ -1,6 +1,6 @@
-[gd_scene load_steps=6 format=3 uid="uid://dyq1p6fil7abv"]
+[gd_scene load_steps=7 format=3 uid="uid://dyq1p6fil7abv"]
 
-[ext_resource type="Script" uid="uid://8vyuhyx0xogt" path="res://addons/freecam_3D/freecam.gd" id="1_3o86n"]
+[ext_resource type="Script" uid="uid://dyexunm8bke3g" path="res://scripts/character_body_3d.gd" id="2_lnu2h"]
 [ext_resource type="Script" uid="uid://bb03uslj4ash1" path="res://scripts/Leaf.cs" id="2_yqjtg"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_8yi1a"]
@@ -12,20 +12,28 @@ sky_material = SubResource("ProceduralSkyMaterial_8yi1a")
 background_mode = 2
 sky = SubResource("Sky_gey1s")
 
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_yqjtg"]
+
 [node name="Game" type="Node3D"]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_71kqe")
 
-[node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 40000, 0)
-far = 40000.0
-script = ExtResource("1_3o86n")
-
-[node name="Leaf" type="Node3D" parent="."]
+[node name="Leaf" type="Node3D" parent="." node_paths=PackedStringArray("camera")]
 transform = Transform3D(262144, 0, 0, 0, 262144, 0, 0, 0, 262144, 0, 0, 0)
 script = ExtResource("2_yqjtg")
+camera = NodePath("../Camera3D/Camera3D")
 metadata/_custom_type_script = "uid://bb03uslj4ash1"
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.258819, 0.965926, 0, -0.965926, 0.258819, 0, 4.1526, 0)
+
+[node name="Camera3D" type="CharacterBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4000, 0)
+script = ExtResource("2_lnu2h")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Camera3D"]
+shape = SubResource("CapsuleShape3D_yqjtg")
+
+[node name="Camera3D" type="Camera3D" parent="Camera3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
