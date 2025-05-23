@@ -31,9 +31,6 @@ public partial class TerrainManager : Node3D
         // Center the chunk inside its grid cell
         chunk.GlobalPosition = (Vector3)coords * (scale) + scale / 2f;
 
-        // Kick off generation
-        chunk.create(Callable.From<Vector3, float>(TerrainChunk._generation_function));   // assuming static delegate
-
         return chunk;
     }
 

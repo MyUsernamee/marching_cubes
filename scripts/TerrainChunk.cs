@@ -14,20 +14,29 @@ using System.Reflection.Metadata;
 [GlobalClass]
 public partial class TerrainChunk : MeshInstance3D
 {
-    public delegate float GenerationFunction(Vector3 position);
-
     public static int COUNT = 8;
 
-    public static int get_count()
-    {
-        return COUNT;
-    }
+    static Vector3[] DIRECTIONS = {
+        Vector3.Back,
+        Vector3.Right,
+        Vector3.Up
+    };
 
+   
+    static Vector3[][] ORTH_DIRECTIONS = {
+        // Orthogonal to Vector3.Back (Z+)
+        new Vector3[] { Vector3.Right, Vector3.Up },
+        // Orthogonal to Vector3.Right (X+)
+        new Vector3[] { Vector3.Up, Vector3.Back },
+        // Orthogonal to Vector3.Up (Y+)
+        new Vector3[] { Vector3.Back, Vector3.Right }
+    };
+
+
+    
     [Export]
     bool debug;
 
-    [Export]
-    bool needs_update;
 
     float[] m_values = new float[(COUNT + 2) * (COUNT + 2) * (COUNT + 2)];
     Callable m_generation_function;
@@ -41,38 +50,39 @@ public partial class TerrainChunk : MeshInstance3D
 
     ArrayMesh mesh;
 
-    public static float _generation_function( Vector3 x)
-
+    public static int get_count()
     {
-        return x.Y;
+        return COUNT;
     }
-
-
-    public IEnumerable<Vector3> iter_cube(Vector3 a, Vector3 b)
-    {
-        for (int x = (int)a.X; x < (int)b.X; x++)
+    public static Vector3[] get_orthogonal_driections(Vector3 d) {
+        for (int i = 0; i < DIRECTIONS.Length; i++)
         {
-            for (int y = (int)a.Y; y < (int)b.Y; y++)
-            {
-                for (int z = (int)a.Z; z < (int)b.Z; z++)
-                {
-                    yield return new Vector3(x, y, z);
-                }
-            }
+            if (d == DIRECTIONS[i])
+                return ORTH_DIRECTIONS[i];
         }
+        throw new ArgumentException("Invalid direction vector", nameof(d));
     }
 
-    int convert_to_index(int x, int y, int z) {
-        return (x + 1) + (y + 1) * (COUNT + 2) + (z + 1) * (COUNT + 2) * (COUNT + 2);
-    }
-    int convert_to_index(Vector3 p) {
-        return convert_to_index((int)p.X, (int)p.Y, (int)p.Z);
+    public static float get_intersection_point(float a, float b) {
+        return -a / (b - a);
     }
 
-    public void update()
+    /// <summary>
+    /// Fills the terrain chunk's value grid by evaluating the generation function at each grid point.
+    /// Utilizes parallel processing to compute values efficiently across the chunk's volume.
+    /// </summary>
+    public void fill_values()
     {
-        needs_update = true;
+        var t = par_for_cube(-Vector3.One, Vector3.One * (COUNT + 1), Callable.From<Vector3>((_p) =>
+        {
+            var position = ((_p + Vector3.One * 0.5f) / COUNT - Vector3.One * 0.5f);
+            set_value(_p, (float)m_generation_function.Call(GlobalTransform * position));
+        }));
+
+        WorkerThreadPool.WaitForGroupTaskCompletion(t);
     }
+   
+    
 
     public float get_value(int x, int y, int z)
     {
@@ -90,7 +100,7 @@ public partial class TerrainChunk : MeshInstance3D
     {
         set_value((int)p.X, (int)p.Y, (int)p.Z, value);
     }
-
+ 
     public Vector3 get_normal(Vector3 position) {
         Vector3 normal = Vector3.Zero;
         float a = get_value(position);
@@ -105,36 +115,29 @@ public partial class TerrainChunk : MeshInstance3D
         return normal;
     }
 
-    
 
-    static Vector3[] DIRECTIONS = {
-        Vector3.Back,
-        Vector3.Right,
-        Vector3.Up
-    };
+    static int  convert_to_index(int x, int y, int z) {
+        return (x + 1) + (y + 1) * (COUNT + 2) + (z + 1) * (COUNT + 2) * (COUNT + 2);
+    }
 
-    static Vector3[][] ORTH_DIRECTIONS = {
-        // Orthogonal to Vector3.Back (Z+)
-        new Vector3[] { Vector3.Right, Vector3.Up },
-        // Orthogonal to Vector3.Right (X+)
-        new Vector3[] { Vector3.Up, Vector3.Back },
-        // Orthogonal to Vector3.Up (Y+)
-        new Vector3[] { Vector3.Back, Vector3.Right }
-    };
-
-    public Vector3[] get_orthogonal_driections(Vector3 d) {
-        for (int i = 0; i < DIRECTIONS.Length; i++)
+    int convert_to_index(Vector3 p) {
+        return convert_to_index((int)p.X, (int)p.Y, (int)p.Z);
+    }
+ 
+    public static IEnumerable<Vector3> iter_cube(Vector3 a, Vector3 b)
+    {
+        for (int x = (int)a.X; x < (int)b.X; x++)
         {
-            if (d == DIRECTIONS[i])
-                return ORTH_DIRECTIONS[i];
+            for (int y = (int)a.Y; y < (int)b.Y; y++)
+            {
+                for (int z = (int)a.Z; z < (int)b.Z; z++)
+                {
+                    yield return new Vector3(x, y, z);
+                }
+            }
         }
-        throw new ArgumentException("Invalid direction vector", nameof(d));
     }
-
-    public float get_intersection_point(float a, float b) {
-        return -a / (b - a);
-    }
-
+ 
     public long par_for_cube(Vector3 start, Vector3 end, Callable function)
     {
 
@@ -157,18 +160,6 @@ public partial class TerrainChunk : MeshInstance3D
         return task;
 
     }
-
-    public void fill_values()
-    {
-        var t = par_for_cube(-Vector3.One, Vector3.One * (COUNT + 1), Callable.From<Vector3>((_p) =>
-        {
-            var position = ((_p + Vector3.One * 0.5f) / COUNT - Vector3.One * 0.5f);
-            set_value(_p, (float)m_generation_function.Call(GlobalTransform * position));
-        }));
-
-        WorkerThreadPool.WaitForGroupTaskCompletion(t);
-    }
-
     public void generate_quads()
     {
 
@@ -246,11 +237,6 @@ public partial class TerrainChunk : MeshInstance3D
 
     }
 
-    public void build_collisions()
-    {
-
-    }
-
     public void generate_mesh()
     {
 
@@ -302,7 +288,6 @@ public partial class TerrainChunk : MeshInstance3D
 
     public void create(Callable generation_function) {
         m_generation_function = generation_function;
-        needs_update = true;
         fill_values();
     }
 
@@ -311,23 +296,12 @@ public partial class TerrainChunk : MeshInstance3D
 
         mesh = new ArrayMesh();
         Mesh = mesh;
-        m_generation_function = Callable.From<Vector3, float>((Vector3 _p) =>
-        {
-            return _p.Length() - 1.0f;
-        });
-        
 
         m_values = new float[(COUNT + 2) * (COUNT + 2) * (COUNT + 2)];
     }
 
     public override void _Process(double _delta)
     {
-
-        if (needs_update) {
-            needs_update = false;
-            
-            generate_mesh();
-        }
 
         if (debug) {
             foreach (var _p in iter_cube(-Vector3.One, Vector3.One * (COUNT + 1)))
