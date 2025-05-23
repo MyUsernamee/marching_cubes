@@ -69,6 +69,11 @@ public partial class TerrainChunk : MeshInstance3D
         return convert_to_index((int)p.X, (int)p.Y, (int)p.Z);
     }
 
+    public void update()
+    {
+        needs_update = true;
+    }
+
     public float get_value(int x, int y, int z)
     {
         return m_values[convert_to_index(x, y, z)];
@@ -249,6 +254,15 @@ public partial class TerrainChunk : MeshInstance3D
     public void generate_mesh()
     {
 
+        if (surface_array != null)
+        {
+            surface_array.Dispose();
+            verts.Clear();
+            normals.Clear();
+            uvs.Clear();
+            indicies.Clear();
+        }
+
         surface_array = new Godot.Collections.Array();
         surface_array.Resize((int)Mesh.ArrayType.Max);
 
@@ -273,10 +287,14 @@ public partial class TerrainChunk : MeshInstance3D
         start = Time.GetTicksUsec();
         if (verts.Count != 0 && indicies.Count != 0)
         {
+            foreach(var child in GetChildren()) {
+                child.QueueFree();
+
+            }
             mesh.ClearSurfaces();
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, surface_array);
             CreateTrimeshCollision();
-            Print(GetChildren());
+            
         }
 
 
@@ -285,7 +303,7 @@ public partial class TerrainChunk : MeshInstance3D
     public void create(Callable generation_function) {
         m_generation_function = generation_function;
         needs_update = true;
-
+        fill_values();
     }
 
     public override void _Ready()
@@ -307,7 +325,6 @@ public partial class TerrainChunk : MeshInstance3D
 
         if (needs_update) {
             needs_update = false;
-            fill_values();
             
             generate_mesh();
         }

@@ -17,7 +17,7 @@ public partial class Leaf : Node3D
     public bool built    = false;
     public bool building = false;
 
-    private const float WIGGLE_ROOM = 0.75f;
+    private const float WIGGLE_ROOM = 0.5f;
 
     public TerrainChunk terrain;
     [Export]
@@ -56,11 +56,15 @@ public partial class Leaf : Node3D
         return GlobalBasis * Vector3.One;
     }
 
+    public bool has_children() {
+        return children.Count != 0;
+    }
+
     // Returns true if point is inside the leaf
     public bool is_inside(Vector3 x, float wiggle)
     {
         Vector3 local_position = ToLocal(x);
-        float   max            = 0.5f + wiggle;
+        float max = 0.5f + wiggle;
 
         return Mathf.Abs(local_position.X) <= max &&
                Mathf.Abs(local_position.Y) <= max &&
@@ -72,7 +76,7 @@ public partial class Leaf : Node3D
         
 
         return is_inside(camera_position, WIGGLE_ROOM) &&
-               (get_world_size().X > TerrainChunk.get_count()) &&
+               (get_world_size().X * 16.0f > TerrainChunk.get_count()) &&
                !same_sign;
     }
 
@@ -98,7 +102,7 @@ public partial class Leaf : Node3D
                 level  = level + 1
             };
 
-            AddChild(child);
+                    AddChild(child);
             child.Scale    = 0.5f * Vector3.One;
             child.Position = (new Vector3(x - 0.5f, y - 0.5f, z - 0.5f)) * 0.5f;
 
@@ -125,6 +129,11 @@ public partial class Leaf : Node3D
         terrain.MaterialOverride = (Material)terrain_material;
         has_terrain = true;
 
+        if (GetParent() is Leaf && ((Leaf)GetParent()).is_ready())
+        {
+            ((Leaf)GetParent()).unload_terrain();
+        }
+
     }
 
     public void gen_terrain()
@@ -136,12 +145,37 @@ public partial class Leaf : Node3D
         TerrainLoadingManager.queue_build(this, level);
     }
 
+    public bool is_ready()
+    {
+        if (is_split)
+        {
+            foreach (var child in children)
+            {
+                if (!child.is_ready())
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return built;
+    }
+
     public void unload_terrain()
     {
         building = false;
 
         if (!built)
             return;
+
+
+        foreach (var child in children)
+        {
+            if (!child.is_ready())
+            {
+                return;
+            }
+        }
 
         terrain?.QueueFree();
         built = false;
@@ -209,14 +243,80 @@ public partial class Leaf : Node3D
 
     }
 
+    public float get_value(Vector3 position)
+    {
+        if (!is_inside(position, 0.0f))
+            return 0.0f;
+
+        if (has_children())
+        {
+            foreach (var child in children)
+            {
+                var value = child.get_value(position);
+                if (value != 0.0f)
+                    return value;
+            }
+        }
+
+        if (!built)
+            return 0.0f; // Damn
+
+
+        Vector3 local_position = ToLocal(position) + Vector3.One * 0.5f;
+        local_position *= TerrainChunk.get_count(); // Gilbert
+        local_position.X = Mathf.Floor(local_position.X);
+        local_position.Y = Mathf.Floor(local_position.Y);
+        local_position.Z = Mathf.Floor(local_position.Z);
+
+        if (local_position.X < -1 || local_position.X >= TerrainChunk.get_count() + 1 ||
+            local_position.Y < -1 || local_position.Y >= TerrainChunk.get_count() + 1 ||
+            local_position.Z < -1 || local_position.Z >= TerrainChunk.get_count() + 1)
+            return 0.0f;
+
+        return terrain.get_value(local_position);
+
+    }
+
+    public void set_value(Vector3 position, float value)
+    {
+        if (!is_inside(position, 0.0f))
+            return;
+
+        if (has_children())
+        {
+            foreach (var child in children)
+            {
+                child.set_value(position, value);
+            }
+            return;
+        }
+
+        if (!built)
+            return; // Damn
+
+
+        Vector3 local_position = ToLocal(position) + Vector3.One * 0.5f;
+        local_position *= TerrainChunk.get_count(); // Gilbert
+        local_position.X = Mathf.Floor(local_position.X);
+        local_position.Y = Mathf.Floor(local_position.Y);
+        local_position.Z = Mathf.Floor(local_position.Z);
+
+        if (local_position.X < -1 || local_position.X >= TerrainChunk.get_count() + 1 ||
+            local_position.Y < -1 || local_position.Y >= TerrainChunk.get_count() + 1 ||
+            local_position.Z < -1 || local_position.Z >= TerrainChunk.get_count() + 1)
+            return;
+
+        terrain.set_value(local_position, value);
+        terrain.update();
+        terrain.generate_mesh();
+
+    }
+
     public override void _Process(double delta)
     {
 
         if (!built && !building && !is_split)
             gen_terrain();
-
-        if (is_split && (built || building))
-            unload_terrain();
 
         if (level == 0)
             camera_position = camera.GlobalPosition;

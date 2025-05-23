@@ -44,7 +44,7 @@ public partial class TerrainLoadingManager : Node
                 continue;
 
             chunk.Call("build_terrain");
-            if (Time.GetTicksUsec() - start_time > 10000)
+            if (Time.GetTicksUsec() - start_time > 1000)
                 return;
         }
 
