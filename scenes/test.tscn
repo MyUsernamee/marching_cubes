@@ -1,13 +1,9 @@
-[gd_scene load_steps=3 format=3 uid="uid://eosmr6n2ciij"]
+[gd_scene load_steps=2 format=3 uid="uid://eosmr6n2ciij"]
 
-[ext_resource type="Script" uid="uid://cynt0saeblp1r" path="res://scripts/TerrainChunk.cs" id="1_errlg"]
-
-[sub_resource type="ArrayMesh" id="ArrayMesh_errlg"]
+[ext_resource type="Script" uid="uid://caurf6cagws01" path="res://scripts/TestCompute.cs" id="1_errlg"]
 
 [node name="Game" type="Node3D"]
 
-[node name="TerrainChunk" type="MeshInstance3D" parent="."]
-transform = Transform3D(2.93482, 0, 0, 0, 2.93482, 0, 0, 0, 2.93482, 0.081656, 0.433801, -0.284823)
-mesh = SubResource("ArrayMesh_errlg")
+[node name="TestCompute" type="Node3D" parent="."]
 script = ExtResource("1_errlg")
-metadata/_custom_type_script = "uid://cynt0saeblp1r"
+metadata/_custom_type_script = "uid://caurf6cagws01"
