@@ -3,21 +3,22 @@
 [ext_resource type="Script" uid="uid://dyexunm8bke3g" path="res://scripts/character_body_3d.gd" id="2_lnu2h"]
 [ext_resource type="Script" uid="uid://bb03uslj4ash1" path="res://scripts/Leaf.cs" id="2_yqjtg"]
 
-[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_8yi1a"]
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_yqjtg"]
 
-[sub_resource type="Sky" id="Sky_gey1s"]
-sky_material = SubResource("ProceduralSkyMaterial_8yi1a")
+[sub_resource type="Sky" id="Sky_lnu2h"]
+sky_material = SubResource("ProceduralSkyMaterial_yqjtg")
 
-[sub_resource type="Environment" id="Environment_71kqe"]
+[sub_resource type="Environment" id="Environment_lbhrr"]
 background_mode = 2
-sky = SubResource("Sky_gey1s")
+sky = SubResource("Sky_lnu2h")
 
-[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_yqjtg"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_yqjtg"]
+size = Vector3(1, 2, 1)
 
 [node name="Game" type="Node3D"]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-environment = SubResource("Environment_71kqe")
+environment = SubResource("Environment_lbhrr")
 
 [node name="Leaf" type="Node3D" parent="." node_paths=PackedStringArray("camera")]
 transform = Transform3D(262144, 0, 0, 0, 262144, 0, 0, 0, 262144, 0, 0, 0)
@@ -32,10 +33,13 @@ transform = Transform3D(1, 0, 0, 0, 0.258819, 0.965926, 0, -0.965926, 0.258819, 
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4050, 0, 0)
 collision_layer = 2
 collision_mask = 3
+up_direction = Vector3(1, 0, 0)
+floor_max_angle = 1.22173
 script = ExtResource("2_lnu2h")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Camera3D"]
-shape = SubResource("CapsuleShape3D_yqjtg")
+shape = SubResource("BoxShape3D_yqjtg")
 
 [node name="Camera3D" type="Camera3D" parent="Camera3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+far = 40000.0

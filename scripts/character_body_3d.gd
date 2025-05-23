@@ -2,7 +2,7 @@ extends CharacterBody3D
 
 
 const SPEED = 5.0
-const JUMP_VELOCITY = 4.5
+const JUMP_VELOCITY = 100.0
 
 @onready var camera = get_node("./Camera3D");
 @onready var main_leaf = $/root/Game/Leaf;
@@ -15,6 +15,8 @@ func rotate_upwards():
 	var wish_up = global_position.normalized();
 	var current_up = global_basis.y
 
+	up_direction = global_basis.y;
+
 	# Get the angle between up and  our current up
 	var angle = acos((current_up).dot(wish_up))
 
@@ -23,7 +25,6 @@ func rotate_upwards():
 
 	if axis == Vector3.ZERO or angle < 0.01:
 		return;
-
 
 	rotate(axis.normalized(), angle);
 

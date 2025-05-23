@@ -16,7 +16,7 @@ public partial class Leaf : Node3D
     public bool built = false; // If the terrain is built and if we have terrain
     public bool building = false;
 
-    private const float WIGGLE_ROOM = 0.5f;
+    private const float WIGGLE_ROOM = 1.0f;
 
     public TerrainChunk terrain;
     [Export]
@@ -36,8 +36,9 @@ public partial class Leaf : Node3D
     // --------------------------------------------------------------------
     public float gen_fun(Vector3 x)
     {
-        return x.DistanceTo(Vector3.Zero) - 4_000f
-            - 50.0f * noise.GetNoise3D(x.X, x.Y, x.Z);
+        return Math.Min(x.DistanceTo(Vector3.Zero) - 4_000f
+            - 50.0f * noise.GetNoise3D(x.X, x.Y, x.Z)
+            ,100.0f * noise.GetNoise3D(x.X / 1000.0f, x.Y / 1000.0f, x.Z / 1000.0f));
     }
 
     public Vector3 get_center() => GlobalPosition;

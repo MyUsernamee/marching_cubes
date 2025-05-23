@@ -64,6 +64,10 @@ fire={
 ]
 }
 
+[physics]
+
+3d/physics_engine="Jolt Physics"
+
 [rendering]
 
 driver/threads/thread_model=2
