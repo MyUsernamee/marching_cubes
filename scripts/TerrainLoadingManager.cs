@@ -34,18 +34,19 @@ public partial class TerrainLoadingManager : Node
         for (int level_index = queued_loads.Count - 1; level_index >= 0; level_index--)
         {
             var level = queued_loads[level_index];
-            if (level.Count == 0)
-                continue;
+            while (level.Count > 0)
+            {
 
-            var chunk = level[level.Count - 1];
-            level.RemoveAt(level.Count - 1);
+                Leaf chunk = (Leaf)level[level.Count - 1];
+                level.RemoveAt(level.Count - 1);
 
-            if (chunk == null || !chunk.IsInsideTree())
-                continue;
+                if (chunk == null || !chunk.IsInsideTree() || !chunk.building)
+                    continue;
 
-            chunk.Call("build_terrain");
-            if (Time.GetTicksUsec() - start_time > 1000)
-                return;
+                chunk.Call("build_terrain");
+                if (Time.GetTicksUsec() - start_time > 8000)
+                    return;
+            }
         }
 
     }

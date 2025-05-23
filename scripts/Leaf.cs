@@ -11,24 +11,23 @@ public partial class Leaf : Node3D
     // --------------------------------------------------------------------
     public List<Leaf> children = new();
     public bool is_split = false;
-    public int  level    = 0;
-    public bool has_terrain = false;
+    public int level = 0;
 
-    public bool built    = false;
+    public bool built = false; // If the terrain is built and if we have terrain
     public bool building = false;
 
-    private const float WIGGLE_ROOM = 0.5f;
+    private const float WIGGLE_ROOM = 0.25f;
 
     public TerrainChunk terrain;
     [Export]
-    public Camera3D     camera;
+    public Camera3D camera;
 
     public static Resource terrain_material = Load("res://addons/prototype_mini_bundle/M_prototype_green.tres");
 
     public static Vector3 camera_position;
 
     FastNoiseLite noise = new FastNoiseLite();
-    bool  same_sign = true;
+    bool same_sign = true;
 
     static Timer split_timer;
 
@@ -37,9 +36,6 @@ public partial class Leaf : Node3D
     // --------------------------------------------------------------------
     public float gen_fun(Vector3 x)
     {
-
-
-
         return x.DistanceTo(Vector3.Zero) - 4_000f
             - 50.0f * noise.GetNoise3D(x.X, x.Y, x.Z);
     }
@@ -73,10 +69,10 @@ public partial class Leaf : Node3D
 
     public bool should_split()
     {
-        
+
 
         return is_inside(camera_position, WIGGLE_ROOM) &&
-               (get_world_size().X * 16.0f > TerrainChunk.get_count()) &&
+               (get_world_size().X * 2.0f > TerrainChunk.get_count()) &&
                !same_sign;
     }
 
@@ -93,22 +89,22 @@ public partial class Leaf : Node3D
     public void split()
     {
         for (int x = 0; x < 2; x++)
-        for (int y = 0; y < 2; y++)
-        for (int z = 0; z < 2; z++)
-        {
-            Leaf child = new Leaf
-            {
-                camera = camera,
-                level  = level + 1
-            };
+            for (int y = 0; y < 2; y++)
+                for (int z = 0; z < 2; z++)
+                {
+                    Leaf child = new Leaf
+                    {
+                    };
+                    child.camera = camera;
+                    child.level = level + 1;
 
                     AddChild(child);
-            child.Scale    = 0.5f * Vector3.One;
-            child.Position = (new Vector3(x - 0.5f, y - 0.5f, z - 0.5f)) * 0.5f;
+                    child.Scale = 0.5f * Vector3.One;
+                    child.Position = (new Vector3(x - 0.5f, y - 0.5f, z - 0.5f)) * 0.5f;
 
-            child.auto_split();
-            children.Add(child);
-        }
+                    child.auto_split();
+                    children.Add(child);
+                }
 
         is_split = true;
     }
@@ -122,18 +118,25 @@ public partial class Leaf : Node3D
         building = false;
         built = true;
 
+        foreach (Leaf child in children)
+            child.QueueFree();
+
+        children.Clear();
+
+
         terrain = new TerrainChunk();
         AddChild(terrain);
 
         terrain.create(Callable.From<Vector3, float>(gen_fun));
         terrain.MaterialOverride = (Material)terrain_material;
-        has_terrain = true;
+        terrain.generate_mesh();
 
         if (GetParent() is Leaf && ((Leaf)GetParent()).is_ready())
         {
             ((Leaf)GetParent()).unload_terrain();
         }
 
+        DebugDraw3D.DrawBoxAb(GlobalTransform * (Vector3.One * -0.5f), GlobalTransform * (Vector3.One * 0.5f));
     }
 
     public void gen_terrain()
@@ -184,11 +187,6 @@ public partial class Leaf : Node3D
     public void combine()
     {
         is_split = false;
-
-        foreach (Leaf child in children)
-            child.QueueFree();
-
-        children.Clear();
         // gen_terrain();
     }
 
@@ -307,7 +305,6 @@ public partial class Leaf : Node3D
             return;
 
         terrain.set_value(local_position, value);
-        terrain.update();
         terrain.generate_mesh();
 
     }
@@ -322,6 +319,5 @@ public partial class Leaf : Node3D
             camera_position = camera.GlobalPosition;
 
         // Debug drawing (commented out in original)
-        // DebugDraw3D.DrawBoxAb(GlobalTransform * Vector3.One * -0.5f, GlobalTransform * Vector3.One * 0.5f);
     }
 }

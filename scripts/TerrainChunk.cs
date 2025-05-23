@@ -14,7 +14,7 @@ using System.Reflection.Metadata;
 [GlobalClass]
 public partial class TerrainChunk : MeshInstance3D
 {
-    public static int COUNT = 8;
+    public static int COUNT = 16;
 
     static Vector3[] DIRECTIONS = {
         Vector3.Back,

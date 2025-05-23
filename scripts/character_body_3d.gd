@@ -43,7 +43,7 @@ func _physics_process(delta: float) -> void:
 	camera.rotate_object_local(Vector3.RIGHT, -mouse_delta.y * sensitivity);
 
 	# Handle jump.
-	if Input.is_action_just_pressed("jump") and is_on_floor():
+	if Input.is_action_just_pressed("jump"):
 		velocity.y = JUMP_VELOCITY
 
 	# Get the input direction and handle the movement/deceleration.
