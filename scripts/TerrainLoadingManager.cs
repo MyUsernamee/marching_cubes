@@ -1,13 +1,18 @@
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using Godot.Collections;
 using Godot.NativeInterop;
 using static Godot.GD;
 
+
 public partial class TerrainLoadingManager : Node
 {
 
-    static Array<Array<Node>> queued_loads; // Tree of loads
+    static List<List<Node>> queued_loads; // Tree of loads
+    static HashSet<Node3D> in_queue;
     public static void ensure_level(int level)
     {
         if (level < queued_loads.Count)
@@ -15,13 +20,16 @@ public partial class TerrainLoadingManager : Node
 
         for (int i = queued_loads.Count; i <= level; i++)
         {
-            queued_loads.Add(new Array<Node>());
+            queued_loads.Add(new List<Node>());
         }
     }
 
     public static void queue_build(Node chunk, int level)
     {
         ensure_level(level);
+
+        if (in_queue.Contains(chunk))
+            return;
 
         queued_loads[level].Add(chunk);
 
@@ -37,14 +45,15 @@ public partial class TerrainLoadingManager : Node
             while (level.Count > 0)
             {
 
-                Leaf chunk = (Leaf)level[level.Count - 1];
+                Leaf chunk = (Leaf)level.Last();
                 level.RemoveAt(level.Count - 1);
+                in_queue.Remove(chunk);
 
                 if (chunk == null || !chunk.IsInsideTree() || !chunk.building)
                     continue;
 
                 chunk.Call("build_terrain");
-                if (Time.GetTicksUsec() - start_time > 8000)
+                if (Time.GetTicksUsec() - start_time > 10000)
                     return;
             }
         }
@@ -53,12 +62,13 @@ public partial class TerrainLoadingManager : Node
 
     public override void _Ready()
     {
-        queued_loads = new Array<Array<Node>>();
+        queued_loads = new List<List<Node>>();
+        in_queue = new HashSet<Node3D>();
     }
 
     public override void _Process(double _d)
     {
-            build_chunk(16);
+        build_chunk(16);
     }
 
 }

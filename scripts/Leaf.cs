@@ -16,7 +16,7 @@ public partial class Leaf : Node3D
     public bool built = false; // If the terrain is built and if we have terrain
     public bool building = false;
 
-    private const float WIGGLE_ROOM = 0.25f;
+    private const float WIGGLE_ROOM = 0.5f;
 
     public TerrainChunk terrain;
     [Export]

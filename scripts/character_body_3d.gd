@@ -13,7 +13,7 @@ var mouse_delta = Vector2.ZERO;
 func rotate_upwards():
 
 	var wish_up = global_position.normalized();
-	var current_up = global_position * Vector3.UP
+	var current_up = global_basis.y
 
 	# Get the angle between up and  our current up
 	var angle = acos((current_up).dot(wish_up))
@@ -21,7 +21,7 @@ func rotate_upwards():
 	# Get the rotation axis
 	var axis = current_up.cross(wish_up);
 
-	if axis == Vector3.ZERO:
+	if axis == Vector3.ZERO or angle < 0.01:
 		return;
 
 
@@ -33,14 +33,15 @@ func _input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	rotate_upwards();
 	# Add the gravity.
 	if not is_on_floor():
 		velocity += get_gravity().y * position.normalized() * delta
 
-	rotate_upwards();
 
 	rotate_object_local(Vector3.UP, -mouse_delta.x * sensitivity);
 	camera.rotate_object_local(Vector3.RIGHT, -mouse_delta.y * sensitivity);
+	velocity = global_basis.inverse() * velocity;
 
 	# Handle jump.
 	if Input.is_action_just_pressed("jump"):
@@ -49,13 +50,15 @@ func _physics_process(delta: float) -> void:
 	# Get the input direction and handle the movement/deceleration.
 	# As good practice, you should replace UI actions with custom gameplay actions.
 	var input_dir := Input.get_vector("left", "right", "up", "down")
-	var direction := (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
+	var direction := Vector3(input_dir.x, 0, input_dir.y).normalized()
 	if direction:
 		velocity.x = direction.x * SPEED
 		velocity.z = direction.z * SPEED
 	else:
 		velocity.x = move_toward(velocity.x, 0, SPEED)
 		velocity.z = move_toward(velocity.z, 0, SPEED)
+
+	velocity = global_basis * velocity;
 
 	if Input.is_action_pressed("fire"):
 		# Cast a ray and get which chunk we are looking at
