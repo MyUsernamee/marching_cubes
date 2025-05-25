@@ -310,6 +310,37 @@ public partial class Leaf : Node3D
 
     }
 
+    public Leaf get_node_containing_point(Vector3 point, Leaf last)
+    {
+
+        if (is_inside(point, 0.0f))
+        {
+            if (is_split)
+            {
+                foreach (var child in children)
+                {
+                    if (child == last)
+                        continue;
+                    var _temp = child.get_node_containing_point(point, this);
+                    if (_temp != null)
+                    {
+                        return _temp;
+                    }
+                }
+            }
+            return this;
+        }
+
+
+        if (GetParent() is Leaf && last != (Leaf)GetParent())
+        {
+            return ((Leaf)GetParent()).get_node_containing_point(point, this);
+        }
+
+        return null; // ?? Gilbert??
+
+    }
+
     public override void _Process(double delta)
     {
 

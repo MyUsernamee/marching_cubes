@@ -2,7 +2,7 @@ extends CharacterBody3D
 
 
 const SPEED = 5.0
-const JUMP_VELOCITY = 100.0
+const JUMP_VELOCITY = 1.0
 
 @onready var camera = get_node("./Camera3D");
 @onready var main_leaf = $/root/Game/Leaf;
@@ -73,6 +73,9 @@ func _physics_process(delta: float) -> void:
 		if not result.is_empty():
 			var collider = result["collider"];
 			var terrain : TerrainChunk = collider.get_parent();
+
+			var _temp: Leaf = terrain.get_parent().get_node_containing_point(result['position'] + Vector3.BACK * 4.0, null);
+			DebugDraw3D.draw_box_ab(_temp.global_transform * (Vector3.ONE * -0.5), _temp.global_transform * (Vector3.ONE * 0.5));
 
 			main_leaf.set_value(result['position'], main_leaf.get_value(result['position']) + delta);
 
