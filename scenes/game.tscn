@@ -1,5 +1,6 @@
-[gd_scene load_steps=7 format=3 uid="uid://dyq1p6fil7abv"]
+[gd_scene load_steps=8 format=3 uid="uid://dyq1p6fil7abv"]
 
+[ext_resource type="Script" uid="uid://nx4a1q0kuqju" path="res://scripts/fps_counter.gd" id="1_lnu2h"]
 [ext_resource type="Script" uid="uid://dyexunm8bke3g" path="res://scripts/character_body_3d.gd" id="2_lnu2h"]
 [ext_resource type="Script" uid="uid://bb03uslj4ash1" path="res://scripts/Leaf.cs" id="2_yqjtg"]
 
@@ -17,6 +18,13 @@ size = Vector3(1, 2, 1)
 
 [node name="Game" type="Node3D"]
 
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Label" type="Label" parent="CanvasLayer"]
+offset_right = 40.0
+offset_bottom = 23.0
+script = ExtResource("1_lnu2h")
+
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_lbhrr")
 
@@ -30,7 +38,7 @@ metadata/_custom_type_script = "uid://bb03uslj4ash1"
 transform = Transform3D(1, 0, 0, 0, 0.258819, 0.965926, 0, -0.965926, 0.258819, 0, 4.1526, 0)
 
 [node name="Camera3D" type="CharacterBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4050, 0, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 0, 0)
 collision_layer = 2
 collision_mask = 3
 up_direction = Vector3(1, 0, 0)

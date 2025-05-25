@@ -2,7 +2,7 @@ extends CharacterBody3D
 
 
 const SPEED = 5.0
-const JUMP_VELOCITY = 1.0
+const JUMP_VELOCITY = 10.0
 
 @onready var camera = get_node("./Camera3D");
 @onready var main_leaf = $/root/Game/Leaf;
