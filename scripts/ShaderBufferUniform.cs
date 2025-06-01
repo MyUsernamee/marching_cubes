@@ -10,7 +10,14 @@ public class ShaderBufferUniform : Uniform {
     public ShaderBufferUniform(RenderingDevice rd, byte[] data) {
         _rd = rd;
         _data = data;
-        _buffer = rd.StorageBufferCreate((uint)_data.Length, _data);
+        CreateBuffer();
+    }
+
+    void CreateBuffer() {
+        if (_buffer != null)
+            _rd.FreeRid(_buffer);
+        _bufferSize = (uint)_data.Length;
+        _buffer = _rd.StorageBufferCreate(_bufferSize, _data);
     }
 
     public void SetData(byte[] data) {
@@ -31,6 +38,15 @@ public class ShaderBufferUniform : Uniform {
         uniform.Binding = binding;
         uniform.AddId(_buffer);
         return uniform;
+    }
+
+    // Sends data from CPU to GPU
+    public void UpdateDeviceBuffer() {
+        if (_data.Length == _bufferSize)
+            _rd.BufferUpdate(_buffer, 0, _bufferSize, _data);
+        else {
+            CreateBuffer(); // Regenerate the buffer becuase it is the wrong size;
+        }
     }
 
 }

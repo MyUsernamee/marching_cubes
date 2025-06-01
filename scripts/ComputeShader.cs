@@ -1,15 +1,19 @@
 
-
-using System;
 using Godot;
 using static Godot.GD;
+using Godot.Collections;
+using System;
 
 [GlobalClass]
 public partial class ComputeShader : Node3D
 {
 
-    RenderingDevice rd;
-    Rid shader;
+    RenderingDevice _rd;
+    Rid _shader;
+    Rid _pipeline;
+    Array<Uniform> _uniforms;
+    Rid _uniformSet;
+    bool _uniformSetDirty = true;
     
     ComputeShader (String shader_path, RenderingDevice rd) {
         var shader_file = Load<RDShaderFile>(shader_path);
@@ -17,60 +21,64 @@ public partial class ComputeShader : Node3D
             throw new ArgumentException("ComputeShader::new() - shader_path not vaild, error loading.");
 
         var shader_byte_code  = shader_file.GetSpirV(); // TODO: Throw execption is compilation is failed
-        shader = rd.ShaderCreateFromSpirV(shader_byte_code);
+        _shader = rd.ShaderCreateFromSpirV(shader_byte_code);
+        _pipeline = _rd.ComputePipelineCreate(_shader);
     }
 
-    public class ShaderBufferUniform {
+    public void Sync() {
+        _rd.Barrier(RenderingDevice.BarrierMask.Compute);
+    }
 
-        RenderingDevice rd;
-        
+    public void AddUniform(Uniform uniform) {
+        _uniforms.Add(uniform);
+        uniform.Connect("rid_updated", Callable.From<Uniform>(MakeUniformSetDirty));
+        _uniformSetDirty = true;
+    }
 
-        public ShaderBufferUniform(RenderingDevice rd, byte[] data) {
-            
+    public void AddUniformArray(Array<Uniform> uniforms) {
+        _uniforms.AddRange(uniforms);
+        foreach (var uniform in uniforms) 
+            uniform.Connect("rid_updated", Callable.From<Uniform>(MakeUniformSetDirty));
+        _uniformSetDirty = true;
+    }
+
+    public void Run(Vector3I groups, Array<byte> push_constant = null) {
+        if (_uniformSetDirty) {
+            Array<RDUniform> bindings = new Array<RDUniform>();
+            for (int i = 0; i < _uniforms.Count; i++) 
+            {
+                var uniform = _uniforms[i];
+                bindings.Add(uniform.GetRDUniform(i));
+            }
+            if (_uniformSet.IsValid && _rd.UniformSetIsValid(_uniformSet))
+            {
+                _rd.FreeRid(_uniformSet);
+            }
+            _uniformSet = _rd.UniformSetCreate(bindings, _shader, 0);
+            _uniformSetDirty = false;
+
         }
+        var compute_list = _rd.ComputeListBegin();
+        _rd.ComputeListBindComputePipeline(compute_list, _pipeline);
 
+        if (push_constant != null) {
+            while (push_constant.Count % 16 != 0)
+                push_constant.Add(0);
+            byte[] packed_push_constant = new byte[push_constant.Count];
+            push_constant.CopyTo(packed_push_constant, 0);
+            _rd.ComputeListSetPushConstant(compute_list, packed_push_constant, (uint)push_constant.Count);
+        }
+        
+        _rd.ComputeListDispatch(compute_list, (uint)groups.X, (uint)groups.Y, (uint)groups.Z);
+        _rd.ComputeListEnd();
+    
+    } 
+
+    public void MakeUniformSetDirty(Uniform _) {
+        _uniformSetDirty = true;
     }
-
-    public override void _Ready()
-    {
-
-        rd = RenderingServer.CreateLocalRenderingDevice();
-
-        var shader_file = Load<RDShaderFile>("res://scripts/shaders/surface_net.glsl");
-        var shader_byte_code = shader_file.GetSpirV();
-        shader = rd.ShaderCreateFromSpirV(shader_byte_code);
-
-        float[] test_input = [1, 2, 3, 4];
-        var bytes = new byte[test_input.Length * sizeof(float)];
-        Buffer.BlockCopy(test_input, 0, bytes, 0, test_input.Length * sizeof(float));
-
-        var buffer = rd.StorageBufferCreate((uint)bytes.Length, bytes);
-
-        var uniform = new RDUniform
-        {
-            UniformType = RenderingDevice.UniformType.StorageBuffer,
-            Binding = 0
-        };
-        uniform.AddId(buffer);
-        var uniform_set = rd.UniformSetCreate([uniform], shader, 0);
-
-        var pipeline = rd.ComputePipelineCreate(shader);
-        var computeList = rd.ComputeListBegin();
-        rd.ComputeListBindComputePipeline(computeList, pipeline);
-        rd.ComputeListBindUniformSet(computeList, uniform_set, 0);
-        rd.ComputeListDispatch(computeList, 2, 1, 1);
-        rd.ComputeListEnd();
-
-        rd.Submit();
-        rd.Sync();
-
-        var outputBytes = rd.BufferGetData(buffer);
-        var output = new float[test_input.Length];
-        Buffer.BlockCopy(outputBytes, 0, output, 0, outputBytes.Length);
-
-        for (int i = 0; i < 4; i++)
-            Print(output[i]);
-
-    }
+    // ## Called from a bound uniform when it's RID changes.
+    // func make_uniform_set_dirty(_uniform: Uniform) -> void:
+    // 	uniform_set_dirty = true
 
 }

@@ -1,11 +1,10 @@
 using Godot;
-using static Godot.GD;
 
 [GlobalClass]
-public abstract class Uniform {
+public abstract class Uniform : GodotObject {
 
     protected RenderingDevice _rd;
 
-    public abstract RDUniform GetRDUniform();
+    public abstract RDUniform GetRDUniform(int binding);
 
 }
