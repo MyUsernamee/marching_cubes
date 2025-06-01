@@ -11,15 +11,23 @@ public partial class ComputeShader : Node3D
     RenderingDevice rd;
     Rid shader;
     
-    ComputeShader (String shader_path) {
-        rd = RenderingServer.CreateLocalRenderingDevice();
-
+    ComputeShader (String shader_path, RenderingDevice rd) {
         var shader_file = Load<RDShaderFile>(shader_path);
         if (shader_file == null)
             throw new ArgumentException("ComputeShader::new() - shader_path not vaild, error loading.");
 
         var shader_byte_code  = shader_file.GetSpirV(); // TODO: Throw execption is compilation is failed
         shader = rd.ShaderCreateFromSpirV(shader_byte_code);
+    }
+
+    public class ShaderBufferUniform {
+
+        RenderingDevice rd;
+        
+
+        public ShaderBufferUniform(RenderingDevice rd, byte[] data) {
+            
+        }
 
     }
 
