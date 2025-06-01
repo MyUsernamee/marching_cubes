@@ -5,16 +5,17 @@ using Godot;
 using static Godot.GD;
 
 [GlobalClass]
-public partial class TestCompute : Node3D
+public partial class ComputeShader : Node3D
 {
 
     RenderingDevice rd;
     Rid shader;
-
+    
     public override void _Ready()
     {
 
         rd = RenderingServer.CreateLocalRenderingDevice();
+
 
         var shader_file = Load<RDShaderFile>("res://scripts/shaders/surface_net.glsl");
         var shader_byte_code = shader_file.GetSpirV();

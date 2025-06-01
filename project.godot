@@ -30,7 +30,7 @@ project/assembly_name="marching_cubes"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/freecam_3D/plugin.cfg")
+enabled=PackedStringArray("res://addons/freecam_3D/plugin.cfg", "res://addons/prototype_mini_bundle/plugin.cfg")
 
 [input]
 
