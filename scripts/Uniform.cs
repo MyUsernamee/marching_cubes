@@ -1,7 +1,10 @@
 using Godot;
 
 [GlobalClass]
-public abstract class Uniform : GodotObject {
+public abstract partial class Uniform : GodotObject {
+
+    [Signal]
+    public delegate void RidUpdatedEventHandler(Uniform uniform);
 
     protected RenderingDevice _rd;
 

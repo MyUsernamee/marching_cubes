@@ -1,7 +1,7 @@
 using Godot;
 using static Godot.GD;
 
-public class ShaderBufferUniform : Uniform {
+public partial class ShaderBufferUniform : Uniform {
 
     byte[] _data;
     uint _bufferSize;
@@ -13,11 +13,16 @@ public class ShaderBufferUniform : Uniform {
         CreateBuffer();
     }
 
+    public static ShaderBufferUniform From<T>(RenderingDevice rd, T value) {
+        return new ShaderBufferUniform(rd, PrimitiveToByteArrayConverter.ToBytes<T>(value));
+    }
+
     void CreateBuffer() {
-        if (_buffer != null)
+        if (_buffer != null && _buffer.IsValid)
             _rd.FreeRid(_buffer);
         _bufferSize = (uint)_data.Length;
         _buffer = _rd.StorageBufferCreate(_bufferSize, _data);
+        EmitSignal(SignalName.RidUpdated, this);
     }
 
     public void SetData(byte[] data) {
@@ -30,6 +35,10 @@ public class ShaderBufferUniform : Uniform {
 
     public byte[] GetDeviceData() {
         return _rd.BufferGetData(_buffer);
+    }
+
+    public T[] GetDeviceData<T>() where T: struct {
+        return PrimitiveToByteArrayConverter.FromBytes<T>(_rd.BufferGetData(_buffer));
     }
 
     public override RDUniform GetRDUniform(int binding) {

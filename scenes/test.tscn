@@ -1,10 +1,9 @@
 [gd_scene load_steps=2 format=3 uid="uid://eosmr6n2ciij"]
 
-[ext_resource type="Script" uid="uid://b4g86gnjhrh3u" path="res://scripts/OctreeNode.cs" id="1_errlg"]
+[ext_resource type="Script" uid="uid://caurf6cagws01" path="res://scripts/TestCompute.cs" id="1_errlg"]
 
 [node name="Game" type="Node3D"]
 
-[node name="OctreeNode" type="Node3D" parent="."]
+[node name="TestCompute" type="Node" parent="."]
 script = ExtResource("1_errlg")
-sdf = Callable()
-metadata/_custom_type_script = "uid://b4g86gnjhrh3u"
+metadata/_custom_type_script = "uid://caurf6cagws01"
