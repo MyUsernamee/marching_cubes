@@ -1,4 +1,6 @@
 
+using static Godot.GD;
+using Godot;
 using System.Collections.Generic;
 using System;
 using System.Text;
@@ -19,6 +21,30 @@ public static class PrimitiveToByteArrayConverter
     public static byte[] ToBytes(float value) => BitConverter.GetBytes(value);
     public static byte[] ToBytes(double value) => BitConverter.GetBytes(value);
     public static byte[] ToBytes(string value) => Encoding.UTF8.GetBytes(value);
+    public static byte[] ToBytes(Vector2 value) {
+        // 3Floats
+        byte[] bytes = new byte[sizeof(float) * 2];
+        BitConverter.GetBytes(value.X).CopyTo(bytes, 0);
+        BitConverter.GetBytes(value.Y).CopyTo(bytes, sizeof(float) * 1);
+        return bytes;
+    }
+    public static byte[] ToBytes(Vector3 value) {
+        // 3Floats
+        byte[] bytes = new byte[sizeof(float) * 4];
+        BitConverter.GetBytes(value.X).CopyTo(bytes, 0);
+        BitConverter.GetBytes(value.Y).CopyTo(bytes, sizeof(float) * 1);
+        BitConverter.GetBytes(value.Z).CopyTo(bytes, sizeof(float) * 2);
+        return bytes;
+    }
+    public static byte[] ToBytes(Vector4 value) {
+        // 3Floats
+        byte[] bytes = new byte[sizeof(float) * 4];
+        BitConverter.GetBytes(value.X).CopyTo(bytes, 0);
+        BitConverter.GetBytes(value.Y).CopyTo(bytes, sizeof(float) * 1);
+        BitConverter.GetBytes(value.Z).CopyTo(bytes, sizeof(float) * 2);
+        BitConverter.GetBytes(value.W).CopyTo(bytes, sizeof(float) * 3);
+        return bytes;
+    }
 
     public static byte[] ToBytes(bool[] values) => Flatten(values, ToBytes);
     public static byte[] ToBytes(char[] values) => Flatten(values, ToBytes);
@@ -33,6 +59,9 @@ public static class PrimitiveToByteArrayConverter
     public static byte[] ToBytes(float[] values) => Flatten(values, ToBytes);
     public static byte[] ToBytes(double[] values) => Flatten(values, ToBytes);
     public static byte[] ToBytes(string[] values) => Flatten(values, Encoding.UTF8.GetBytes, new byte[] { 0 });
+    public static byte[] ToBytes(Vector2[] values) => Flatten(values, ToBytes);
+    public static byte[] ToBytes(Vector3[] values) => Flatten(values, ToBytes);
+    public static byte[] ToBytes(Vector4[] values) => Flatten(values, ToBytes);
 
     public static byte[] ToBytes<T>(T value)
     {
@@ -51,6 +80,9 @@ public static class PrimitiveToByteArrayConverter
             case float v: return ToBytes(v);
             case double v: return ToBytes(v);
             case string v: return ToBytes(v);
+            case Vector2 v: return ToBytes(v);
+            case Vector3 v: return ToBytes(v);
+            case Vector4 v: return ToBytes(v);
 
             case bool[] arr: return ToBytes(arr);
             case char[] arr: return ToBytes(arr);
@@ -65,9 +97,13 @@ public static class PrimitiveToByteArrayConverter
             case float[] arr: return ToBytes(arr);
             case double[] arr: return ToBytes(arr);
             case string[] arr: return ToBytes(arr);
+            case Vector2[] v: return ToBytes(v);
+            case Vector3[] v: return ToBytes(v);
+            case Vector4[] v: return ToBytes(v);
+
 
             default:
-                throw new NotSupportedException($"Type {typeof(T)} is not supported.");
+                              throw new NotSupportedException($"Type {typeof(T)} is not supported.");
         }
     }
 
@@ -84,7 +120,11 @@ public static class PrimitiveToByteArrayConverter
     public static ulong FromBytesULong(byte[] bytes, int offset = 0) => BitConverter.ToUInt64(bytes, offset);
     public static float FromBytesFloat(byte[] bytes, int offset = 0) => BitConverter.ToSingle(bytes, offset);
     public static double FromBytesDouble(byte[] bytes, int offset = 0) => BitConverter.ToDouble(bytes, offset);
-    public static string FromBytesString(byte[] bytes) => Encoding.UTF8.GetString(bytes);
+    public static string FromBytesString(byte[] bytes) =>  Encoding.UTF8.GetString(bytes);
+    public static Vector2 FromBytesVector2(byte[] bytes, int offset=0) => new Vector2(BitConverter.ToSingle(bytes, offset), BitConverter.ToSingle(bytes, (int)sizeof(float) + offset));
+    public static Vector3 FromBytesVector3(byte[] bytes, int offset=0) => new Vector3(BitConverter.ToSingle(bytes, offset), BitConverter.ToSingle(bytes, (int)offset + sizeof(float)), BitConverter.ToSingle(bytes, (int)offset + sizeof(float) * 2));
+    public static Vector4 FromBytesVector4(byte[] bytes, int offset=0) => new Vector4(BitConverter.ToSingle(bytes, offset), BitConverter.ToSingle(bytes, (int)offset + sizeof(float)), BitConverter.ToSingle(bytes, (int)offset + sizeof(float) * 2), BitConverter.ToSingle(bytes, (int)offset + sizeof(float) * 3));
+
 
 
     public static T[] FromBytes<T>(byte[] bytes) where T : struct
@@ -113,6 +153,14 @@ public static class PrimitiveToByteArrayConverter
             return (T[])(object)FromBytesArray(bytes, sizeof(float), BitConverter.ToSingle);
         if (t == typeof(double))
             return (T[])(object)FromBytesArray(bytes, sizeof(double), BitConverter.ToDouble);
+        if (t == typeof(double))
+            return (T[])(object)FromBytesArray(bytes, sizeof(double), BitConverter.ToDouble);
+        if (t == typeof(Vector2))
+            return (T[])(object)FromBytesArray<Vector2>(bytes, sizeof(float) * 2, FromBytesVector2);
+        if (t == typeof(Vector3))
+            return (T[])(object)FromBytesArray<Vector3>(bytes, sizeof(float) * 4, FromBytesVector3);
+        if (t == typeof(Vector4))
+            return (T[])(object)FromBytesArray<Vector4>(bytes, sizeof(float) * 4, FromBytesVector4);
 
         throw new NotSupportedException($"Type {typeof(T)} is not supported.");
     }

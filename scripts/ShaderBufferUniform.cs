@@ -28,6 +28,9 @@ public partial class ShaderBufferUniform : Uniform {
     public void SetData(byte[] data) {
         _data = data;
     }
+    public void SetData<T>(T[] data) {
+        _data = PrimitiveToByteArrayConverter.ToBytes(data);
+    }
 
     public byte[] GetLocalData() {
         return _data;

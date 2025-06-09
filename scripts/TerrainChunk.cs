@@ -37,8 +37,15 @@ public partial class TerrainChunk : MeshInstance3D
     [Export]
     bool debug;
 
+    static RenderingDevice rd;
+    static ComputeShader compute_shader;
+    static ShaderBufferUniform value_shader_buffer;
+    static ShaderBufferUniform verts_shader_buffer;
+    static ShaderBufferUniform parameters_shader_buffer;
 
     float[] m_values = new float[(COUNT + 2) * (COUNT + 2) * (COUNT + 2)];
+    Vector3[] m_verts = new Vector3[COUNT * COUNT * COUNT];
+
     Callable m_generation_function;
 
     Godot.Collections.Array surface_array;
@@ -163,10 +170,11 @@ public partial class TerrainChunk : MeshInstance3D
     public void generate_quads()
     {
 
+        set_vert_gpu();
 
         var t = par_for_cube(-Vector3.One, Vector3.One * (COUNT), Callable.From<Vector3>((_p) =>
         {
-            verts[convert_to_index(_p)] = (_p / COUNT - Vector3.One * 0.5f);
+//            verts[convert_to_index(_p)] = (_p / COUNT - Vector3.One * 0.5f);
             normals[convert_to_index(_p)] = get_normal(_p);
             uvs[convert_to_index(_p)] = (Vector2.Zero);
 
@@ -227,13 +235,49 @@ public partial class TerrainChunk : MeshInstance3D
                 // vert_position.X = Math.Clamp(vert_position.X, -0.5f, 0.5f);
                 // vert_position.Y = Math.Clamp(vert_position.Y, -0.5f, 0.5f);
                 // vert_position.Z = Math.Clamp(vert_position.Z, -0.5f, 0.5f);
-                verts[convert_to_index(_p)] = vert_position;
+ //               verts[convert_to_index(_p)] = vert_position;
 
             }
 
         }));
 
         WorkerThreadPool.WaitForGroupTaskCompletion(t);
+
+    }
+
+    public static void init_gpu_buffers() {
+        // We need a way to read and write data to the gpu for atleast generating the vert positions.
+        // We need to read vector3s from the gpu so for this 
+
+//        if (rd != null)
+//            return; 
+        rd = RenderingServer.CreateLocalRenderingDevice();
+        value_shader_buffer = ShaderBufferUniform.From(rd, new float[1]);
+        verts_shader_buffer = ShaderBufferUniform.From(rd, new Vector3[1]); 
+        parameters_shader_buffer = ShaderBufferUniform.From(rd, new Vector3[1]);
+
+        compute_shader = new ComputeShader("res://scripts/shaders/surface_net.glsl", rd);
+        compute_shader.AddUniform(value_shader_buffer);
+        compute_shader.AddUniform(verts_shader_buffer);
+        compute_shader.AddUniform(parameters_shader_buffer);
+    }
+
+    public static Vector3[] place_verts_gpu(float[] values, Vector3I size, Vector3 scale) {
+        value_shader_buffer.SetData(values);
+        verts_shader_buffer.SetData(new Vector3[size.X * size.Y * size.Z]);
+        Vector3[] _params = {new Vector3(size.X, size.Y, size.Z), scale};
+        parameters_shader_buffer.SetData(_params);
+        value_shader_buffer.UpdateDeviceBuffer();
+        verts_shader_buffer.UpdateDeviceBuffer();
+        parameters_shader_buffer.UpdateDeviceBuffer();
+        compute_shader.Run(size);
+        compute_shader.Sync();
+        return verts_shader_buffer.GetDeviceData<Vector3>();
+    }
+
+    public void set_vert_gpu() {
+
+        verts = new Array<Vector3>(place_verts_gpu(m_values, Vector3I.One * (COUNT + 2), Vector3.One * COUNT));
 
     }
 
@@ -293,15 +337,19 @@ public partial class TerrainChunk : MeshInstance3D
 
     public override void _Ready()
     {
+        init_gpu_buffers();
 
         mesh = new ArrayMesh();
         Mesh = mesh;
 
         m_values = new float[(COUNT + 2) * (COUNT + 2) * (COUNT + 2)];
+
+
     }
 
     public override void _Process(double _delta)
     {
+
 
         if (debug) {
             foreach (var _p in iter_cube(-Vector3.One, Vector3.One * (COUNT + 1)))
