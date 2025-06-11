@@ -177,8 +177,8 @@ public partial class TerrainChunk : MeshInstance3D
 //            verts[convert_to_index(_p)] = (_p / COUNT - Vector3.One * 0.5f);
             normals[convert_to_index(_p)] = get_normal(_p);
             uvs[convert_to_index(_p)] = (Vector2.Zero);
-
-            Vector3 average = Vector3.Zero;
+ 
+           Vector3 average = Vector3.Zero;
             int count = 0;
 
             foreach (var direction in iter_cube(Vector3.Zero, Vector3.One * 2))
@@ -249,8 +249,8 @@ public partial class TerrainChunk : MeshInstance3D
         // We need a way to read and write data to the gpu for atleast generating the vert positions.
         // We need to read vector3s from the gpu so for this 
 
-//        if (rd != null)
-//            return; 
+       if (rd != null)
+           return; 
         rd = RenderingServer.CreateLocalRenderingDevice();
         value_shader_buffer = ShaderBufferUniform.From(rd, new float[1]);
         verts_shader_buffer = ShaderBufferUniform.From(rd, new Vector3[1]); 
