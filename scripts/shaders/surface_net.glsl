@@ -19,10 +19,10 @@ layout(set=0,  binding=2, std430) restrict buffer ParametersBuffer {
 } p;
 
 int get_index(int x, int y, int z) {
-    return (x - 1) + (y - 1) * size.x + (z - 1) * size.x * size.z;;;;
+    return (x + 1) + (y + 1) * int(p.size.x) + (z + 1) * int(p.size.x) * int(p.size.y);
 }
 int get_index(vec3 position) {
-    return get_index((int)position.x, (int)position.y, (int)position.z);
+    return get_index(int(position.x), int(position.y), int(position.z));
 }
 
 float get_value(vec3 p) {
@@ -39,11 +39,11 @@ void main() {
 
     vert_data.verts[int(gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * p.size.x + gl_GlobalInvocationID.z * p.size.x * p.size.y)] = ((gl_GlobalInvocationID + vec3(1.0) - p.size  / 2.0) / p.scale); 
     // Get average_postion
-    vec3 _p = gl_GlobalInvocationID;
+    vec3 _p = gl_GlobalInvocationID - vec3(1.0);
     int count = 1;
     
-    if (gl_GlobalInvocationID.x == size.x  || gl_GlobalInvocationID.y == size.y || gl_GlobalInvocationID.z == size.z)
-        return 
+    if (gl_GlobalInvocationID.x == p.size.x  || gl_GlobalInvocationID.y == p.size.y || gl_GlobalInvocationID.z == p.size.z)
+        return;
     for(int x = 0; x < 2; x++)
     for(int y = 0; y < 2; y++)
     for(int z = 0; z < 2; z++)
@@ -61,10 +61,10 @@ void main() {
             continue;
 
         // Zero along this axis
-        _p += off *  intersection;
+        _p += off * intersection + _p;
     }
 
-    vert_data.verts[get_index(gl_GlobalInvocationID)] = _p / count;
+    vert_data.verts[get_index(gl_GlobalInvocationID)] = ((_p / count)- p.size / 2.0) / p.scale;
 
 }
 

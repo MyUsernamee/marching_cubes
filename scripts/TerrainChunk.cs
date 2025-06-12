@@ -22,7 +22,7 @@ public partial class TerrainChunk : MeshInstance3D
         Vector3.Up
     };
 
-   
+
     static Vector3[][] ORTH_DIRECTIONS = {
         // Orthogonal to Vector3.Back (Z+)
         new Vector3[] { Vector3.Right, Vector3.Up },
@@ -33,7 +33,7 @@ public partial class TerrainChunk : MeshInstance3D
     };
 
 
-    
+
     [Export]
     bool debug;
 
@@ -81,15 +81,15 @@ public partial class TerrainChunk : MeshInstance3D
     public void fill_values()
     {
         var t = par_for_cube(-Vector3.One, Vector3.One * (COUNT + 1), Callable.From<Vector3>((_p) =>
-        {
-            var position = ((_p + Vector3.One * 0.5f) / COUNT - Vector3.One * 0.5f);
-            set_value(_p, (float)m_generation_function.Call(GlobalTransform * position));
-        }));
+                    {
+                    var position = ((_p + Vector3.One * 0.5f) / COUNT - Vector3.One * 0.5f);
+                    set_value(_p, (float)m_generation_function.Call(GlobalTransform * position));
+                    }));
 
         WorkerThreadPool.WaitForGroupTaskCompletion(t);
     }
-   
-    
+
+
 
     public float get_value(int x, int y, int z)
     {
@@ -107,7 +107,7 @@ public partial class TerrainChunk : MeshInstance3D
     {
         set_value((int)p.X, (int)p.Y, (int)p.Z, value);
     }
- 
+
     public Vector3 get_normal(Vector3 position) {
         Vector3 normal = Vector3.Zero;
         float a = get_value(position);
@@ -118,7 +118,7 @@ public partial class TerrainChunk : MeshInstance3D
             normal += direction * (value - a);
         }
 
-        
+
         return normal;
     }
 
@@ -130,7 +130,7 @@ public partial class TerrainChunk : MeshInstance3D
     int convert_to_index(Vector3 p) {
         return convert_to_index((int)p.X, (int)p.Y, (int)p.Z);
     }
- 
+
     public static IEnumerable<Vector3> iter_cube(Vector3 a, Vector3 b)
     {
         for (int x = (int)a.X; x < (int)b.X; x++)
@@ -144,7 +144,7 @@ public partial class TerrainChunk : MeshInstance3D
             }
         }
     }
- 
+
     public long par_for_cube(Vector3 start, Vector3 end, Callable function)
     {
 
@@ -154,15 +154,15 @@ public partial class TerrainChunk : MeshInstance3D
         int elements = length * width * height;
 
         var task = WorkerThreadPool.AddGroupTask(Callable.From<int>((index) =>
-        {
-            int x = index % length;
-            int y = (int)(index / length) % width;
-            int z = (int)(index / length / width);
+                    {
+                    int x = index % length;
+                    int y = (int)(index / length) % width;
+                    int z = (int)(index / length / width);
 
 
-            function.Call(new Vector3(x, y, z) + start);
+                    function.Call(new Vector3(x, y, z) + start);
 
-        }), elements, -1, true);
+                    }), elements, -1, true);
 
         return task;
 
@@ -174,11 +174,11 @@ public partial class TerrainChunk : MeshInstance3D
 
         var t = par_for_cube(-Vector3.One, Vector3.One * (COUNT), Callable.From<Vector3>((_p) =>
         {
-//            verts[convert_to_index(_p)] = (_p / COUNT - Vector3.One * 0.5f);
+            //            verts[convert_to_index(_p)] = (_p / COUNT - Vector3.One * 0.5f);
             normals[convert_to_index(_p)] = get_normal(_p);
             uvs[convert_to_index(_p)] = (Vector2.Zero);
- 
-           Vector3 average = Vector3.Zero;
+
+            Vector3 average = Vector3.Zero;
             int count = 0;
 
             foreach (var direction in iter_cube(Vector3.Zero, Vector3.One * 2))
@@ -189,7 +189,7 @@ public partial class TerrainChunk : MeshInstance3D
                 float b = get_value(_p + direction);
 
                 if (a * b >= 0)
-                    continue; // No Edge here
+                continue; // No Edge here
 
                 var mid_point = get_intersection_point(a, b) * direction + _p;
                 average += mid_point;
@@ -235,7 +235,7 @@ public partial class TerrainChunk : MeshInstance3D
                 // vert_position.X = Math.Clamp(vert_position.X, -0.5f, 0.5f);
                 // vert_position.Y = Math.Clamp(vert_position.Y, -0.5f, 0.5f);
                 // vert_position.Z = Math.Clamp(vert_position.Z, -0.5f, 0.5f);
- //               verts[convert_to_index(_p)] = vert_position;
+                //               verts[convert_to_index(_p)] = vert_position;
 
             }
 
@@ -249,8 +249,8 @@ public partial class TerrainChunk : MeshInstance3D
         // We need a way to read and write data to the gpu for atleast generating the vert positions.
         // We need to read vector3s from the gpu so for this 
 
-       if (rd != null)
-           return; 
+        if (rd != null)
+            return; 
         rd = RenderingServer.CreateLocalRenderingDevice();
         value_shader_buffer = ShaderBufferUniform.From(rd, new float[1]);
         verts_shader_buffer = ShaderBufferUniform.From(rd, new Vector3[1]); 
@@ -324,7 +324,7 @@ public partial class TerrainChunk : MeshInstance3D
             mesh.ClearSurfaces();
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, surface_array);
             CreateTrimeshCollision();
-            
+
         }
 
 
@@ -354,7 +354,7 @@ public partial class TerrainChunk : MeshInstance3D
         if (debug) {
             foreach (var _p in iter_cube(-Vector3.One, Vector3.One * (COUNT + 1)))
             {
-                
+
                 var vert = verts[convert_to_index(_p)];
                 DebugDraw3D.DrawSphere(GlobalTransform * vert, 0.01f, new Color(1, 0, 0, 1), 0);
             }
