@@ -30,7 +30,7 @@ float get_value(vec3 p) {
 }
 
 float get_root(float a, float b) {
-    return (-a) / (b - a);
+    return -a / (b - a);
 }
 
 // The code we want to execute in each invocation
@@ -39,32 +39,40 @@ void main() {
 
     vert_data.verts[int(gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * p.size.x + gl_GlobalInvocationID.z * p.size.x * p.size.y)] = ((gl_GlobalInvocationID + vec3(1.0) - p.size  / 2.0) / p.scale); 
     // Get average_postion
-    vec3 _p = gl_GlobalInvocationID - vec3(1.0);
-    int count = 1;
+    vec3 _g_p = gl_GlobalInvocationID - vec3(1.0);
+    vec3 _p = vec3(0.0);
+    int count = 0;
     
     if (gl_GlobalInvocationID.x == p.size.x  || gl_GlobalInvocationID.y == p.size.y || gl_GlobalInvocationID.z == p.size.z)
         return;
     for(int x = 0; x < 2; x++)
-    for(int y = 0; y < 2; y++)
-    for(int z = 0; z < 2; z++)
     {
-        if (x + y + z == 0)
-            continue;
-        vec3 off = vec3(x, y, z);
-        
-        float a = get_value(_p);
-        float b = get_value(_p + off);
+        for(int y = 0; y < 2; y++)
+        {
+            for(int z = 0; z < 2; z++)
+            {
+                if (x + y + z == 0)
+                    continue;
+                vec3 off = vec3(x, y, z);
 
-        float intersection = get_root(a, b);
+                float a = get_value(_g_p);
+                float b = get_value(_g_p + off);
 
-        if (intersection < 0 || intersection > 1)
-            continue;
+                float intersection = get_root(a, b);
 
-        // Zero along this axis
-        _p += off * intersection + _p;
+                if (intersection < 0 || intersection > 1)
+                    continue;
+
+                // Zero along this axis
+                _p += off * intersection + _g_p;
+                count += 1;
+            }
+
+        }
     }
-
-    vert_data.verts[get_index(gl_GlobalInvocationID)] = ((_p / count)- p.size / 2.0) / p.scale;
+    if (count == 0 )
+        return;
+    vert_data.verts[get_index(gl_GlobalInvocationID - vec3(1.0))] = ((_p / count)- p.size / 2.0) / p.scale;
 
 }
 
