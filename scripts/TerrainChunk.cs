@@ -40,6 +40,7 @@ public partial class TerrainChunk : MeshInstance3D
     static RenderingDevice rd;
     static ComputeShader compute_shader;
     static ShaderBufferUniform value_shader_buffer;
+    static ShaderBufferUniform normal_shader_buffer;
     static ShaderBufferUniform verts_shader_buffer;
     static ShaderBufferUniform parameters_shader_buffer;
 
@@ -175,11 +176,7 @@ public partial class TerrainChunk : MeshInstance3D
         var t = par_for_cube(-Vector3.One, Vector3.One * (COUNT), Callable.From<Vector3>((_p) =>
         {
             //            verts[convert_to_index(_p)] = (_p / COUNT - Vector3.One * 0.5f);
-            normals[convert_to_index(_p)] = get_normal(_p);
             uvs[convert_to_index(_p)] = (Vector2.Zero);
-
-            Vector3 average = Vector3.Zero;
-            int count = 0;
 
             foreach (var direction in iter_cube(Vector3.Zero, Vector3.One * 2))
             {
@@ -189,13 +186,7 @@ public partial class TerrainChunk : MeshInstance3D
                 float b = get_value(_p + direction);
 
                 if (a * b >= 0)
-                continue; // No Edge here
-
-                var mid_point = get_intersection_point(a, b) * direction + _p;
-                average += mid_point;
-                count += 1;
-
-
+                    continue; // No Edge here
 
                 if (direction.X + direction.Y + direction.Z != 1 || _p.X < 0.0 || _p.Y < 0.0 || _p.Z < 0.0)
                     continue;
@@ -229,15 +220,6 @@ public partial class TerrainChunk : MeshInstance3D
 
             }
 
-            if (count != 0)
-            {
-                var vert_position = (average / count) / COUNT - Vector3.One * 0.5f;
-                // vert_position.X = Math.Clamp(vert_position.X, -0.5f, 0.5f);
-                // vert_position.Y = Math.Clamp(vert_position.Y, -0.5f, 0.5f);
-                // vert_position.Z = Math.Clamp(vert_position.Z, -0.5f, 0.5f);
-                //               verts[convert_to_index(_p)] = vert_position;
-
-            }
 
         }));
 
@@ -254,30 +236,37 @@ public partial class TerrainChunk : MeshInstance3D
         rd = RenderingServer.CreateLocalRenderingDevice();
         value_shader_buffer = ShaderBufferUniform.From(rd, new float[1]);
         verts_shader_buffer = ShaderBufferUniform.From(rd, new Vector3[1]); 
+        normal_shader_buffer = ShaderBufferUniform.From(rd, new Vector3[1]); 
         parameters_shader_buffer = ShaderBufferUniform.From(rd, new Vector3[1]);
 
         compute_shader = new ComputeShader("res://scripts/shaders/surface_net.glsl", rd);
         compute_shader.AddUniform(value_shader_buffer);
         compute_shader.AddUniform(verts_shader_buffer);
         compute_shader.AddUniform(parameters_shader_buffer);
+        compute_shader.AddUniform(normal_shader_buffer);
     }
 
-    public static Vector3[] place_verts_gpu(float[] values, Vector3I size, Vector3 scale) {
+    public static (Vector3[], Vector3[]) place_verts_gpu(float[] values, Vector3I size, Vector3 scale) {
         value_shader_buffer.SetData(values);
         verts_shader_buffer.SetData(new Vector3[size.X * size.Y * size.Z]);
+        normal_shader_buffer.SetData(new Vector3[size.X * size.Y * size.Z]);
         Vector3[] _params = {new Vector3(size.X, size.Y, size.Z), scale};
         parameters_shader_buffer.SetData(_params);
         value_shader_buffer.UpdateDeviceBuffer();
         verts_shader_buffer.UpdateDeviceBuffer();
+        normal_shader_buffer.UpdateDeviceBuffer();
         parameters_shader_buffer.UpdateDeviceBuffer();
         compute_shader.Run(size);
         compute_shader.Sync();
-        return verts_shader_buffer.GetDeviceData<Vector3>();
+        return (verts_shader_buffer.GetDeviceData<Vector3>(), normal_shader_buffer.GetDeviceData<Vector3>());
+;
     }
 
     public void set_vert_gpu() {
 
-        verts = new Array<Vector3>(place_verts_gpu(m_values, Vector3I.One * (COUNT + 2), Vector3.One * COUNT));
+        var _a = place_verts_gpu(m_values, Vector3I.One * (COUNT + 2), Vector3.One * COUNT);
+        verts = new Array<Vector3>(_a.Item1);
+        normals = new Array<Vector3>(_a.Item2);
 
     }
 
@@ -323,6 +312,7 @@ public partial class TerrainChunk : MeshInstance3D
             }
             mesh.ClearSurfaces();
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, surface_array);
+
             CreateTrimeshCollision();
 
         }
